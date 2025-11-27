@@ -74,10 +74,10 @@ try {
     $rgIndex = [int]$rgChoice - 1
     if ($rgIndex -lt 0 -or $rgIndex -ge $resourceGroups.Count) { throw "Invalid selection." }
     $ResourceGroupName = $resourceGroups[$rgIndex].ResourceGroupName
-    Log "✅ Selected Resource Group: $ResourceGroupName" "Green"
+    Log " Selected Resource Group: $ResourceGroupName" "Green"
 }
 catch {
-    Log "❌ Failed to list or select Resource Group: $($_.Exception.Message)" "Red"
+    Log " Failed to list or select Resource Group: $($_.Exception.Message)" "Red"
     Pause
     exit
 }
@@ -117,10 +117,10 @@ try {
         throw "Selected Data Factory has no valid name property. Try updating Az.DataFactory module."
     }
  
-    Log "✅ Selected Data Factory: $DataFactoryName" "Green"
+    Log " Selected Data Factory: $DataFactoryName" "Green"
 }
 catch {
-    Log "❌ Error retrieving Data Factories: $($_.Exception.Message)" "Red"
+    Log " Error retrieving Data Factories: $($_.Exception.Message)" "Red"
     Pause
     exit
 }
@@ -128,7 +128,7 @@ catch {
 # ----------------------------
 # Step 4. List pipelines
 # ----------------------------
-Log "`n📜 Retrieving pipelines from '$DataFactoryName'..." "Yellow"
+Log "`n Retrieving pipelines from '$DataFactoryName'..." "Yellow"
 try {
     $pipelines = Get-AzDataFactoryV2Pipeline -ResourceGroupName $ResourceGroupName -DataFactoryName $DataFactoryName -ErrorAction Stop
     if (-not $pipelines) { throw "No pipelines found in '$DataFactoryName'." }
@@ -141,17 +141,17 @@ try {
     $pipelineChoice = Read-Host "Enter the number of the pipeline to migrate (or A for all)"
     if ($pipelineChoice -eq "A" -or $pipelineChoice -eq "a") {
         $PipelineNames = $pipelines.Name
-        Log "✅ All pipelines selected for migration." "Green"
+        Log " All pipelines selected for migration." "Green"
     }
     else {
         $pipelineIndex = [int]$pipelineChoice - 1
         if ($pipelineIndex -lt 0 -or $pipelineIndex -ge $pipelines.Count) { throw "Invalid pipeline selection." }
         $PipelineNames = @($pipelines[$pipelineIndex].Name)
-        Log "✅ Selected pipeline: $($PipelineNames[0])" "Green"
+        Log " Selected pipeline: $($PipelineNames[0])" "Green"
     }
 }
 catch {
-    Log "❌ Error retrieving pipelines: $($_.Exception.Message)" "Red"
+    Log " Error retrieving pipelines: $($_.Exception.Message)" "Red"
     Pause
     exit
 }
@@ -159,14 +159,14 @@ catch {
 # ----------------------------
 # Step 5. Tokens
 # ----------------------------
-Log "`n🔑 Retrieving secure tokens..." "Yellow"
+Log "`n Retrieving secure tokens..." "Yellow"
 try {
     $adfSecureToken = (Get-AzAccessToken -ResourceUrl "https://management.azure.com/").Token
     $fabricSecureToken = (Get-AzAccessToken -ResourceUrl "https://analysis.windows.net/powerbi/api").Token
-    Log "✅ Tokens acquired successfully." "Green"
+    Log " Tokens acquired successfully." "Green"
 }
 catch {
-    Log "❌ Failed to acquire tokens: $($_.Exception.Message)" "Red"
+    Log " Failed to acquire tokens: $($_.Exception.Message)" "Red"
     Pause
     exit
 }
@@ -175,7 +175,7 @@ catch {
 # Step 6. Validate resolutions file
 # ----------------------------
 if (-not (Test-Path $ResolutionsFile)) {
-    Log "⚠️ Resolutions file not found: $ResolutionsFile" "Red"
+    Log " Resolutions file not found: $ResolutionsFile" "Red"
     Pause
     exit
 }
@@ -185,7 +185,7 @@ if (-not (Test-Path $ResolutionsFile)) {
 # ----------------------------
 foreach ($PipelineName in $PipelineNames) {
     try {
-        Log "`n🚀 Migrating pipeline '$PipelineName' from ADF '$DataFactoryName'..." "Yellow"
+        Log "`n Migrating pipeline '$PipelineName' from ADF '$DataFactoryName'..." "Yellow"
         Import-AdfFactory `
             -SubscriptionId $SubscriptionId `
             -ResourceGroupName $ResourceGroupName `
@@ -198,17 +198,17 @@ foreach ($PipelineName in $PipelineNames) {
             -Region $Region `
             -Workspace $FabricWorkspaceId `
             -Token $fabricSecureToken
-        Log "✅ Migration complete for pipeline: $PipelineName" "Green"
+        Log " Migration complete for pipeline: $PipelineName" "Green"
     }
     catch {
-        Log "❌ Migration failed for pipeline '$PipelineName': $($_.Exception.Message)" "Red"
+        Log " Migration failed for pipeline '$PipelineName': $($_.Exception.Message)" "Red"
     }
 }
  
 # ----------------------------
 # Step 8. Wrap up
 # ----------------------------
-Log "`n🎉 Migration complete! Check your Fabric workspace (ID: $FabricWorkspaceId)." "Green"
+Log "`n Migration complete! Check your Fabric workspace (ID: $FabricWorkspaceId)." "Green"
 Log "Logs saved at: $LogFile" "Gray"
  
 Write-Host "`nPress any key to exit..." -ForegroundColor Gray

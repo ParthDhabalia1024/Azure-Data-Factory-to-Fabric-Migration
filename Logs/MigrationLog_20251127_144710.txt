@@ -1,0 +1,17 @@
+--- Starting Migration Session ---
+[14:47:10] 510 Logging into Azure...
+[14:47:22] 4d8 Active Subscription: Azure-subcription-onpoint (f4b50ff4-9f41-4407-bd29-9663327d220a)
+[14:47:22] Using Resource Group: fabric_learning_shivaan
+[14:47:26] 197 Resource Group found: fabric_learning_shivaan
+[14:47:26] Using Data Factory: shivaan-df
+[14:47:28] 197 Data Factory resolved: shivaan-df
+[14:47:28] Retrieving pipelines from 'shivaan-df'...
+[14:47:30] 197 Pipelines selected for migration: new_pipeline_2, pipeline1
+[14:47:30] Retrieving secure tokens...
+[14:47:30] 197 Tokens acquired successfully.
+[14:47:30] Migrating pipeline 'new_pipeline_2' from ADF 'shivaan-df'...
+[14:47:52] 197 Migration complete for pipeline: new_pipeline_2
+[14:47:52] Migrating pipeline 'pipeline1' from ADF 'shivaan-df'...
+[14:48:02] 197 Migration complete for pipeline: pipeline1
+[14:48:02] Migration complete! Check your Fabric workspace (ID: 70aaeb4a-b6fe-47de-b76a-b5726c78f156).
+[14:48:02] 4c3 Logs saved at: C:\Users\Dell\Desktop\Azure-Data-Factory-to-Fabric-Migration\Logs\MigrationLog_20251127_144710.txt

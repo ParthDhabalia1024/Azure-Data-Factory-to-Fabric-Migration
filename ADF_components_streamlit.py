@@ -1,5 +1,7 @@
 import json
 import re
+import os
+import subprocess
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import streamlit as st
@@ -2165,6 +2167,81 @@ def main() -> None:
                 st.dataframe(score_rows, width="stretch", hide_index=True)
             else:
                 st.info("No pipelines to score.")
+
+            pipeline_names = sorted({ row.get("Pipeline") for row in score_rows if row.get("Pipeline") })
+            st.subheader("Migrate pipelines to Fabric")
+            if not pipeline_names:
+                st.info("No pipelines available to migrate for this Data Factory.")
+            else:
+                migrate_all = st.checkbox(
+                    "Migrate all pipelines in this Data Factory",
+                    value=True,
+                    key=f"migrate_all_{selected_df}",
+                )
+                if migrate_all:
+                    pipelines_to_migrate = pipeline_names
+                else:
+                    pipelines_to_migrate = st.multiselect(
+                        "Select pipelines to migrate",
+                        options=pipeline_names,
+                        default=pipeline_names,
+                        key=f"pipelines_to_migrate_{selected_df}",
+                    )
+
+                run_migration = st.button(
+                    "Migrate selected pipelines to Fabric",
+                    type="primary",
+                    key=f"run_migration_{selected_df}",
+                )
+                if run_migration:
+                    if not pipelines_to_migrate:
+                        st.warning("Please select at least one pipeline to migrate.")
+                    else:
+                        script_path = os.path.join(os.path.dirname(__file__), "adf_to_fabric_migration.ps1")
+                        workspace_id = "70aaeb4a-b6fe-47de-b76a-b5726c78f156"
+                        resolutions_file = r"C:\\Users\\Dell\\Desktop\\Azure-Data-Factory-to-Fabric-Migration\\resolutions.json"
+                        region = "prod"
+                        cmd = [
+                            "pwsh",
+                            "-File",
+                            script_path,
+                            "-FabricWorkspaceId",
+                            workspace_id,
+                            "-ResolutionsFile",
+                            resolutions_file,
+                            "-Region",
+                            region,
+                            "-SubscriptionId",
+                            subscription_id,
+                            "-ResourceGroupName",
+                            rg_name,
+                            "-DataFactoryName",
+                            selected_df,
+                            "-PipelineNames",
+                            ",".join(pipelines_to_migrate),
+                        ]
+                        try:
+                            with st.spinner("Running migration in PowerShell (this may take a few minutes)..."):
+                                result = subprocess.run(
+                                    cmd,
+                                    capture_output=True,
+                                    text=True,
+                                )
+                        except FileNotFoundError:
+                            st.error("Failed to start PowerShell 7 (pwsh). Ensure PowerShell 7 is installed and available in PATH, and run this app from an elevated PowerShell 7 session.")
+                        except Exception as exc:
+                            st.error(f"Failed to launch migration script: {exc}")
+                        else:
+                            if result.returncode == 0:
+                                st.success("Migration script completed. Check Microsoft Fabric and the Logs folder next to the migration script for details.")
+                            else:
+                                st.error(f"Migration script exited with code {result.returncode}. See details below.")
+                            if result.stdout:
+                                st.caption("PowerShell output:")
+                                st.code(result.stdout, language="powershell")
+                            if result.stderr:
+                                st.caption("PowerShell errors:")
+                                st.code(result.stderr, language="powershell")
 
             # # 3) Linked services
             # st.subheader("Linked services")

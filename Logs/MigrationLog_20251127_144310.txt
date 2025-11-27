@@ -1,0 +1,10 @@
+--- Starting Migration Session ---
+[14:43:10] 510 Logging into Azure...
+[14:43:24] 4d8 Active Subscription: Azure-subcription-onpoint (f4b50ff4-9f41-4407-bd29-9663327d220a)
+[14:43:24] Using Resource Group: fabric_learning_shivaan
+[14:43:28] 197 Resource Group found: fabric_learning_shivaan
+[14:43:28] Using Data Factory: shivaan-df
+[14:43:31] 197 Data Factory resolved: shivaan-df
+[14:43:31] Retrieving pipelines from 'shivaan-df'...
+[14:43:32] 6a03f38van Warning: pipeline 'new_pipeline_2,pipeline1' not found in factory and will be skipped.
+[14:43:32] 6d1 No valid pipelines to migrate after validation.
