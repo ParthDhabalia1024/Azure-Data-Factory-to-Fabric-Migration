@@ -14,6 +14,8 @@ from azure.mgmt.sql import SqlManagementClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
 
+from ui_config import apply_custom_theme, render_header_with_logo, render_header, get_color_palette
+
 
 def _to_dict(obj: Any) -> Dict[str, Any]:
     if obj is None:
@@ -2004,16 +2006,29 @@ def _dot_label(text: str) -> str:
 
 
 def main() -> None:
-    st.set_page_config(page_title="ADF Components Browser", page_icon="🧩", layout="centered")
-    st.title("Azure Data Factory Components Browser")
-    st.caption("Sign in, pick subscription → resource group → factories, then view components per factory.")
+    st.set_page_config(page_title="ADF to Fabric Migration Tool | OnPoint Insights", page_icon="🔷", layout="wide")
+    
+    # Apply custom OnPoint Insights theme
+    apply_custom_theme()
+    
+    # Get logo path
+    logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+    
+    # Custom header with branding and logo
+    render_header_with_logo(
+        "Azure Data Factory to Fabric Migration",
+        "Powered by OnPoint Insights",
+        logo_path=logo_path
+    )
+    st.markdown("---")
+    st.info(" Sign in to Azure, select your subscription, resource group, and Data Factory, then migrate pipelines to Microsoft Fabric.")
 
     if "credential" not in st.session_state:
         st.session_state.credential = None
 
     # Sign-in section
     with st.container(border=True):
-        st.subheader("Sign in to Azure")
+        st.subheader("🔐 Sign in to Azure")
         col1, col2 = st.columns([1, 3])
         with col1:
             login_clicked = st.button("Sign in", type="primary", use_container_width=True)
@@ -2036,7 +2051,7 @@ def main() -> None:
 
     # Subscription selection
     with st.container(border=True):
-        st.subheader("Please Select subscription")
+        st.subheader("📋 Select Subscription")
         try:
             subs = list_subscriptions(_credential=credential)
         except Exception as e:
@@ -2052,7 +2067,7 @@ def main() -> None:
 
     # Resource group selection
     with st.container(border=True):
-        st.subheader("Please Select resource group")
+        st.subheader("📁 Select Resource Group")
         try:
             rgs = list_resource_groups(_credential=credential, subscription_id=subscription_id)
         except Exception as e:
@@ -2109,7 +2124,7 @@ def main() -> None:
             except Exception as e:
                 st.error(f"Failed to fetch components: {e}")
                 st.stop()
-            st.subheader("Pipelines and components")
+            st.subheader("📊 Pipelines and Components")
             if act_rows:
                 st.dataframe(act_rows, width="stretch", hide_index=True)
             else:
@@ -2124,7 +2139,7 @@ def main() -> None:
                 ls_types = []
 
             # 2) Migration scoring
-            st.subheader("Migration scoring (Fabric readiness)")
+            st.subheader("📈 Migration Scoring (Fabric Readiness Assessment)")
             from collections import defaultdict
             grouped: Dict[Tuple[str, str], List[Dict[str, str]]] = defaultdict(list)
             for r in act_rows:
@@ -2169,7 +2184,7 @@ def main() -> None:
                 st.info("No pipelines to score.")
 
             pipeline_names = sorted({ row.get("Pipeline") for row in score_rows if row.get("Pipeline") })
-            st.subheader("Migrate pipelines to Fabric")
+            st.subheader("🚀 Migrate Pipelines to Fabric")
             if not pipeline_names:
                 st.info("No pipelines available to migrate for this Data Factory.")
             else:
@@ -2188,6 +2203,13 @@ def main() -> None:
                         key=f"pipelines_to_migrate_{selected_df}",
                     )
 
+                # Workspace ID input
+                workspace_id = st.text_input(
+                    "Fabric Workspace ID",
+                    placeholder="Enter your Fabric Workspace ID (UUID format)",
+                    key=f"workspace_id_{selected_df}",
+                )
+
                 run_migration = st.button(
                     "Migrate selected pipelines to Fabric",
                     type="primary",
@@ -2196,10 +2218,11 @@ def main() -> None:
                 if run_migration:
                     if not pipelines_to_migrate:
                         st.warning("Please select at least one pipeline to migrate.")
+                    elif not workspace_id:
+                        st.warning("Please enter a Fabric Workspace ID.")
                     else:
                         script_path = os.path.join(os.path.dirname(__file__), "adf_to_fabric_migration.ps1")
-                        workspace_id = "70aaeb4a-b6fe-47de-b76a-b5726c78f156"
-                        resolutions_file = r"C:\\Users\\Dell\\Desktop\\Azure-Data-Factory-to-Fabric-Migration\\resolutions.json"
+                        resolutions_file = r"C:\\Users\\Dell\\OneDrive - OnPoint Insights LLC\\Desktop\\Azure-Data-Factory-to-Fabric-Migration\\resolutions.json"
                         region = "prod"
                         cmd = [
                             "pwsh",
