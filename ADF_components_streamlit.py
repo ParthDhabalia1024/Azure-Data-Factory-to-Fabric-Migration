@@ -2012,7 +2012,10 @@ def main() -> None:
     apply_custom_theme()
     
     # Get logo path
-    logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    UTILS_DIR = os.path.join(BASE_DIR, "utils")
+
+    logo_path = os.path.join(UTILS_DIR, "logo.png")
     
     # Custom header with branding and logo
     render_header_with_logo(
@@ -2221,9 +2224,8 @@ def main() -> None:
                     elif not workspace_id:
                         st.warning("Please enter a Fabric Workspace ID.")
                     else:
-                        script_path = os.path.join(os.path.dirname(__file__), "adf_to_fabric_migration.ps1")
-                        resolutions_file = r"C:\\Users\\Dell\\OneDrive - OnPoint Insights LLC\\Desktop\\Azure-Data-Factory-to-Fabric-Migration\\resolutions.json"
-                        region = "prod"
+                            script_path = os.path.join(UTILS_DIR, "adf_to_fabric_migration.ps1")
+                            resolutions_file = os.path.join(UTILS_DIR, "resolutions.json")
                         cmd = [
                             "pwsh",
                             "-File",

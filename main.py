@@ -58,7 +58,11 @@ def main() -> None:
     apply_custom_theme()
     
     # Get logo path
-    logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    UTILS_DIR = os.path.join(BASE_DIR, "utils")
+
+    logo_path = os.path.join(UTILS_DIR, "logo.png")
+
     
     # Custom header with branding and logo
     render_header_with_logo(
@@ -132,6 +136,9 @@ def main() -> None:
             if res_rows:
                 st.caption(f"Resources in '{rg_name}' ({len(res_rows)} found)")
                 st.dataframe(res_rows, hide_index=True, width="stretch")
+                                # -------------------------------
+                
+
             else:
                 st.info("No resources found in this resource group.")
         except Exception as e:
@@ -299,8 +306,8 @@ def main() -> None:
                         elif not workspace_id:
                             st.warning("Please enter a Fabric Workspace ID.")
                         else:
-                            script_path = os.path.join(os.path.dirname(__file__), "adf_to_fabric_migration.ps1")
-                            resolutions_file = r"C:\\Users\\Dell\\OneDrive - OnPoint Insights LLC\\Desktop\\Azure-Data-Factory-to-Fabric-Migration\\resolutions.json"
+                            script_path = os.path.join(UTILS_DIR, "adf_to_fabric_migration.ps1")
+                            resolutions_file = os.path.join(UTILS_DIR, "resolutions.json")
                             region = "prod"
                             cmd = [
                                 "pwsh",
