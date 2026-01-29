@@ -7,7 +7,7 @@ from typing import List, Dict, Set, Any, Optional
 from azure.identity import InteractiveBrowserCredential
 from azure.mgmt.datafactory import DataFactoryManagementClient
 
-from utilities import (
+from Migration.utilities import (
     _to_dict,
     _collect_activity_types,
     _normalize_type,
@@ -15,8 +15,8 @@ from utilities import (
     _unwrap_expr,
     _norm_key,
 )
-from migration_score import is_migratable, get_activity_category
-from constants import CONTROL_ACTIVITY_TYPES
+from Migration.migration_score import is_migratable, get_activity_category
+from Migration.constants import CONTROL_ACTIVITY_TYPES
 
 
 

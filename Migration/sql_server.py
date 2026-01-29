@@ -9,7 +9,7 @@ from azure.identity import InteractiveBrowserCredential
 from azure.mgmt.sql import SqlManagementClient
 from azure.mgmt.datafactory import DataFactoryManagementClient
 
-from utilities import _to_dict, _parse_table_identifier
+from Migration.utilities import _to_dict, _parse_table_identifier
 
 
 @st.cache_data(show_spinner=False)

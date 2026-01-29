@@ -9,7 +9,7 @@ from azure.identity import InteractiveBrowserCredential
 from azure.mgmt.resource import SubscriptionClient, ResourceManagementClient
 from azure.mgmt.datafactory import DataFactoryManagementClient
 
-from utilities import _to_dict, _friendly_resource_type
+from Migration.utilities import _to_dict, _friendly_resource_type
 
 
 @st.cache_data(show_spinner=False)

@@ -4,12 +4,12 @@ Migration scoring and classification functions for ADF to Fabric Migration Tool
 
 from typing import Iterable
 
-from constants import (
+from Migration.constants import (
     CONTROL_ACTIVITY_TYPES,
     CONNECTIVITY_COMPLEX_KEYWORDS,
     SUPPORTED_MIGRATABLE,
 )
-from utilities import _normalize_type
+from Migration.utilities import _normalize_type
 
 
 def score_component_parity(total_acts: int, non_migratable: int) -> int:

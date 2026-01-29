@@ -7,13 +7,21 @@ import streamlit as st
 from azure.identity import InteractiveBrowserCredential
 
 # Import from modular components
-from azure_common import (
+from Migration.azure_common import (
     list_subscriptions,
     list_resource_groups,
     list_data_factories,
     list_rg_resources,
 )
-from sql_server import (
+
+from Migration.adf_components import (
+    fetch_components_for_factory,
+    fetch_activity_rows_for_factory,
+    list_linked_services_for_factory,
+    list_datasets_for_factory,
+)
+
+from Migration.sql_server import (
     list_sql_servers,
     list_sql_databases_for_server,
     list_sql_usage_for_database_from_adf,
@@ -22,7 +30,8 @@ from sql_server import (
     _list_sql_views_via_pyodbc,
     _list_sql_table_overview_via_pyodbc,
 )
-from data_storage import (
+
+from Migration.data_storage import (
     list_storage_accounts,
     list_blob_containers,
     list_adls_filesystems,
@@ -34,21 +43,19 @@ from data_storage import (
     sample_blob_paths,
     sample_adls_paths,
 )
-from adf_components import (
-    fetch_components_for_factory,
-    fetch_activity_rows_for_factory,
-    list_linked_services_for_factory,
-    list_datasets_for_factory,
-)
-from migration_score import (
+
+from Migration.migration_score import (
     score_component_parity,
     score_non_migratable,
     score_connectivity,
     score_orchestration,
 )
-from utilities import _normalize_type
-from constants import CONTROL_ACTIVITY_TYPES
-from ui_config import apply_custom_theme, render_header_with_logo
+
+from Migration.utilities import _normalize_type
+from Migration.constants import CONTROL_ACTIVITY_TYPES
+from Migration.ui_config import apply_custom_theme, render_header_with_logo
+
+
 
 
 def main() -> None:

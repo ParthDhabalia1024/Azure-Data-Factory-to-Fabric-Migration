@@ -10,7 +10,7 @@ from azure.mgmt.storage import StorageManagementClient
 from azure.storage.blob import BlobServiceClient
 from azure.storage.filedatalake import DataLakeServiceClient
 
-from utilities import _to_dict, _path_info
+from Migration.utilities import _to_dict, _path_info
 
 
 @st.cache_data(show_spinner=False)
