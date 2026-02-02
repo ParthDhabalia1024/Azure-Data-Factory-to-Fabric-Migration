@@ -74,3 +74,58 @@ def fetch_activity_rows_for_synapse(
             rows.append(row)
 
     return rows
+
+
+import requests
+from azure.identity import InteractiveBrowserCredential
+
+
+def _get_synapse_dev_token(credential):
+    token = credential.get_token("https://dev.azuresynapse.net/.default")
+    return token.token
+
+
+def list_synapse_linked_services(
+    credential,
+    synapse_workspace_name: str,
+) -> list[dict]:
+
+    token = _get_synapse_dev_token(credential)
+    url = f"https://{synapse_workspace_name}.dev.azuresynapse.net/linkedservices?api-version=2020-12-01"
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+
+    items = resp.json().get("value", [])
+
+    return [{
+        "LinkedServiceName": i["name"],
+        "Type": i["properties"].get("type")
+    } for i in items]
+
+
+def list_synapse_datasets(
+    credential,
+    synapse_workspace_name: str,
+) -> list[dict]:
+
+    token = _get_synapse_dev_token(credential)
+    url = f"https://{synapse_workspace_name}.dev.azuresynapse.net/datasets?api-version=2020-12-01"
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+
+    items = resp.json().get("value", [])
+
+    return [{
+        "DatasetName": i["name"],
+        "Type": i["properties"].get("type")
+    } for i in items]
