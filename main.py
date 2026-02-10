@@ -2044,6 +2044,33 @@ def main() -> None:
                         placeholder="Enter your Fabric Workspace ID (UUID format)",
                         key=f"workspace_id_syn_{selected_synapse_ws}",
                     )
+                    with st.expander("Optional: Override dataset paths for this migration"):
+                        st.caption("If Synapse dataset APIs are blocked (401) or datasets are parameterized, provide explicit path values to avoid placeholders in Fabric.")
+                        st.markdown("**Source dataset override**")
+                        src_ds_name = st.text_input("Source dataset name", value="", key=f"src_ds_name_{selected_synapse_ws}")
+                        c1, c2, c3 = st.columns(3)
+                        with c1:
+                            src_container = st.text_input("Source container/filesystem", value="", key=f"src_cnt_{selected_synapse_ws}")
+                        with c2:
+                            src_folder = st.text_input("Source folderPath (optional)", value="", key=f"src_fol_{selected_synapse_ws}")
+                        with c3:
+                            src_file = st.text_input("Source fileName (optional)", value="", key=f"src_file_{selected_synapse_ws}")
+
+                        st.markdown("**Sink dataset override**")
+                        sink_ds_name = st.text_input("Sink dataset name", value="", key=f"sink_ds_name_{selected_synapse_ws}")
+                        d1, d2, d3 = st.columns(3)
+                        with d1:
+                            sink_container = st.text_input("Sink container/filesystem", value="", key=f"sink_cnt_{selected_synapse_ws}")
+                        with d2:
+                            sink_folder = st.text_input("Sink folderPath (optional)", value="", key=f"sink_fol_{selected_synapse_ws}")
+                        with d3:
+                            sink_file = st.text_input("Sink fileName (optional)", value="", key=f"sink_file_{selected_synapse_ws}")
+                    # Option to delete the temporary ADF after successful migration
+                    cleanup_temp_adf = st.checkbox(
+                        "Delete temporary ADF after migration",
+                        value=True,
+                        key=f"cleanup_temp_adf_{selected_synapse_ws}",
+                    )
 
                     run_synapse_migration = st.button(
                         "🔄 Migrate Selected Synapse Pipeline to Fabric",
@@ -2080,6 +2107,28 @@ def main() -> None:
                                 "-Region",
                                 region,
                             ]
+
+                            # Pass optional explicit overrides to avoid placeholders when Synapse dataset fetch fails
+                            if src_ds_name and (src_container or src_folder or src_file):
+                                cmd.extend(["-SourceDatasetName", src_ds_name])
+                                if src_container:
+                                    cmd.extend(["-SourceContainer", src_container])
+                                if src_folder:
+                                    cmd.extend(["-SourceFolderPath", src_folder])
+                                if src_file:
+                                    cmd.extend(["-SourceFileName", src_file])
+
+                            if sink_ds_name and (sink_container or sink_folder or sink_file):
+                                cmd.extend(["-SinkDatasetName", sink_ds_name])
+                                if sink_container:
+                                    cmd.extend(["-SinkContainer", sink_container])
+                                if sink_folder:
+                                    cmd.extend(["-SinkFolderPath", sink_folder])
+                                if sink_file:
+                                    cmd.extend(["-SinkFileName", sink_file])
+
+                            if cleanup_temp_adf:
+                                cmd.append("-CleanupTempAdf")
 
                             try:
                                 with st.spinner("Running Synapse → ADF → Fabric migration in PowerShell..."):

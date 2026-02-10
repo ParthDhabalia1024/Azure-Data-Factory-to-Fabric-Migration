@@ -1,8 +1,27 @@
 {
   "properties": {
-    "annotations": [],
+    "variables": {},
+    "parameters": {},
     "activities": [
       {
+        "outputs": [
+          {
+            "type": "DatasetReference",
+            "parameters": {},
+            "referenceName": "DelimitedText2"
+          }
+        ],
+        "policy": {
+          "Timeout": "0.12:00:00",
+          "Retry": 0,
+          "RetryIntervalInSeconds": 30,
+          "SecureInput": false,
+          "SecureOutput": false,
+          "AdditionalProperties": {}
+        },
+        "type": "Copy",
+        "userProperties": [],
+        "dependsOn": [],
         "inputs": [
           {
             "type": "DatasetReference",
@@ -10,11 +29,15 @@
             "referenceName": "DelimitedText1"
           }
         ],
-        "name": "Copy data1",
-        "dependsOn": [],
-        "userProperties": [],
-        "type": "Copy",
         "typeProperties": {
+          "translator": {
+            "type": "TabularTranslator",
+            "typeConversion": true,
+            "typeConversionSettings": {
+              "allowDataTruncation": true,
+              "treatBooleanAsNumber": false
+            }
+          },
           "sink": {
             "StoreSettings": {
               "BlockSizeInMB": null,
@@ -62,35 +85,12 @@
             "SourceRetryWait": null,
             "MaxConcurrentConnections": null,
             "AdditionalProperties": {}
-          },
-          "translator": {
-            "type": "TabularTranslator",
-            "typeConversion": true,
-            "typeConversionSettings": {
-              "allowDataTruncation": true,
-              "treatBooleanAsNumber": false
-            }
           }
         },
-        "outputs": [
-          {
-            "type": "DatasetReference",
-            "parameters": {},
-            "referenceName": "DelimitedText2"
-          }
-        ],
-        "policy": {
-          "Timeout": "0.12:00:00",
-          "Retry": 0,
-          "RetryIntervalInSeconds": 30,
-          "SecureInput": false,
-          "SecureOutput": false,
-          "AdditionalProperties": {}
-        }
+        "name": "Copy data1"
       }
     ],
-    "parameters": {},
-    "variables": {}
+    "annotations": []
   },
   "name": "migrationtest"
 }
