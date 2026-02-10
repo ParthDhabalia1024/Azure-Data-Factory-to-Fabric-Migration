@@ -1974,7 +1974,7 @@ def main() -> None:
                         "Difficulty": "🔴 Not Migratable",
                         "Activities": total_acts,
                         "Non-Migratable Count": non_migratable,
-                        "Reason": "Synapse Integrate pipelines are not ARM-based",
+                        "Reason": "Synapse pipeline's structure is unsupportable",
                     })
 
                 if syn_score_rows:

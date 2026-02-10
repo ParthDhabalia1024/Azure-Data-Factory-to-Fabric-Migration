@@ -8,5 +8,10 @@
     "type": "CredentialConnectionId",
     "key": "user",
     "value": "43d3486b-fa60-49b3-bfc3-5df64712f38d"
+  },
+  {
+    "type": "LinkedServiceToConnectionId",
+    "key": "temp-synapse-migration-ls",
+    "value": "43d3486b-fa60-49b3-bfc3-5df64712f38d"
   }
 ]
