@@ -8,5 +8,10 @@
     "type": "CredentialConnectionId",
     "key": "user",
     "value": "43d3486b-fa60-49b3-bfc3-5df64712f38d"
+  },
+  {
+    "type": "LinkedServiceToConnectionId",
+    "key": "AzureSynapseArtifacts1",
+    "value": "9c8bbb2e-61e6-41b4-a00b-3f0c34bf4887"
   }
 ]

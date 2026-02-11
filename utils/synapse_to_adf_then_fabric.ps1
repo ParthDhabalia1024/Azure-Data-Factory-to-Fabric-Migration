@@ -397,6 +397,33 @@ else {
 # Transform Synapse activities to ADF activities (handle Copy shape)
 function Convert-SynapseActivityToAdf($a) {
     $name = $a.Name
+    # Map Synapse Notebook -> ADF/Fabric Notebook
+    $atype = $null
+    if ($a.PSObject.Properties.Name -contains 'Type') { $atype = $a.Type }
+    elseif ($a.PSObject.Properties.Name -contains 'type') { $atype = $a.type }
+    if ($atype -and ($atype -eq 'SynapseNotebook')) {
+        $tp = $a.TypeProperties
+        $nbRef = $null
+        if ($tp -and ($tp.PSObject.Properties.Name -contains 'notebook')) { $nbRef = $tp.notebook }
+        $nbName = $null
+        if ($nbRef -and ($nbRef.PSObject.Properties.Name -contains 'referenceName')) { $nbName = $nbRef.referenceName }
+        $typeProps = @{ }
+        if ($nbName) {
+            $typeProps.notebook = @{ referenceName = $nbName; type = 'NotebookReference' }
+        }
+        # Pass through parameters when present
+        if ($tp -and ($tp.PSObject.Properties.Name -contains 'parameters') -and $tp.parameters) {
+            $typeProps.parameters = $tp.parameters
+        }
+        return @{
+            name = ($a.Name ? $a.Name : 'Notebook')
+            type = 'Notebook'
+            dependsOn = ($a.DependsOn ? $a.DependsOn : @())
+            policy = $a.Policy
+            userProperties = ($a.UserProperties ? $a.UserProperties : @())
+            typeProperties = $typeProps
+        }
+    }
     # Heuristic: presence of Source/Sink implies Copy
     $hasCopyShape = ($a.PSObject.Properties.Name -contains 'Source') -or ($a.PSObject.Properties.Name -contains 'Sink')
     if ($hasCopyShape) {

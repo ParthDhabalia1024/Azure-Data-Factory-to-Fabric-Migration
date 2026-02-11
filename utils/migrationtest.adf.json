@@ -1,16 +1,11 @@
 {
+  "name": "migrationtest",
   "properties": {
-    "variables": {},
+    "annotations": [],
     "parameters": {},
     "activities": [
       {
-        "outputs": [
-          {
-            "type": "DatasetReference",
-            "parameters": {},
-            "referenceName": "DelimitedText2"
-          }
-        ],
+        "name": "Copy data1",
         "policy": {
           "Timeout": "0.12:00:00",
           "Retry": 0,
@@ -19,16 +14,15 @@
           "SecureOutput": false,
           "AdditionalProperties": {}
         },
-        "type": "Copy",
-        "userProperties": [],
-        "dependsOn": [],
-        "inputs": [
+        "outputs": [
           {
             "type": "DatasetReference",
             "parameters": {},
-            "referenceName": "DelimitedText1"
+            "referenceName": "DelimitedText2"
           }
         ],
+        "dependsOn": [],
+        "userProperties": [],
         "typeProperties": {
           "translator": {
             "type": "TabularTranslator",
@@ -87,10 +81,20 @@
             "AdditionalProperties": {}
           }
         },
-        "name": "Copy data1"
+        "type": "Copy",
+        "inputs": [
+          {
+            "type": "DatasetReference",
+            "parameters": {},
+            "referenceName": "DelimitedText1"
+          }
+        ]
+      },
+      {
+        "name": "Notebook 1",
+        "type": "Execute"
       }
     ],
-    "annotations": []
-  },
-  "name": "migrationtest"
+    "variables": {}
+  }
 }

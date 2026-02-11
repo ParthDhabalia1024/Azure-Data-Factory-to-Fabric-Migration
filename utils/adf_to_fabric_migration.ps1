@@ -175,18 +175,97 @@ if (-not (Test-Path $ResolutionsFile)) {
 foreach ($PipelineName in $PipelineNames) {
     try {
         Log "Migrating pipeline '$PipelineName' from ADF '$DataFactoryName'..." "Yellow"
-        Import-AdfFactory `
-            -SubscriptionId $SubscriptionId `
-            -ResourceGroupName $ResourceGroupName `
-            -FactoryName $DataFactoryName `
-            -PipelineName $PipelineName `
-            -AdfToken $adfSecureToken |
-        ConvertTo-FabricResources |
-        Import-FabricResolutions -ResolutionsFilename $ResolutionsFile |
-        Export-FabricResources `
-            -Region $Region `
-            -Workspace $FabricWorkspaceId `
-            -Token $fabricSecureToken
+        # Capture converted bundle for diagnostics and future NotebookId injection
+        $converted = (
+            Import-AdfFactory `
+                -SubscriptionId $SubscriptionId `
+                -ResourceGroupName $ResourceGroupName `
+                -FactoryName $DataFactoryName `
+                -PipelineName $PipelineName `
+                -AdfToken $adfSecureToken |
+            ConvertTo-FabricResources
+        )
+
+        # Normalize conversion output to a PowerShell object (ConvertTo-FabricResources can return a JSON string)
+        $convertedObj = $null
+        if ($converted -is [string]) {
+            try { $convertedObj = $converted | ConvertFrom-Json } catch { $convertedObj = $null }
+        } else {
+            $convertedObj = $converted
+        }
+
+        # Persist conversion output for inspection (will be used to locate Notebook activities)
+        try {
+            $convPath = Join-Path $LogFolder ("Converted_{0}.json" -f $PipelineName)
+            if ($convertedObj) {
+                ($convertedObj | ConvertTo-Json -Depth 100) | Out-File -FilePath $convPath -Encoding utf8
+            } else {
+                ([string]$converted) | Out-File -FilePath $convPath -Encoding utf8
+            }
+            Log ("Saved converted bundle to: {0}" -f $convPath) "Gray"
+        } catch { }
+
+# ----------------------------
+# Helper: Create Fabric Notebook (placeholder) and return its item id
+# ----------------------------
+function New-FabricNotebookItem {
+    param(
+        [Parameter(Mandatory = $true)] [string]$WorkspaceId,
+        [Parameter(Mandatory = $true)] [string]$DisplayName,
+        [Parameter(Mandatory = $true)] [string]$BearerToken
+    )
+    $uri = "https://api.fabric.microsoft.com/v1/workspaces/$WorkspaceId/items"
+    $headers = @{ Authorization = "Bearer $BearerToken"; "Content-Type" = "application/json" }
+    $body = @{ displayName = $DisplayName; type = "Notebook" } | ConvertTo-Json -Depth 5
+    try {
+        $resp = Invoke-RestMethod -Method POST -Uri $uri -Headers $headers -Body $body -ErrorAction Stop
+        if ($resp -and $resp.id) { return [string]$resp.id }
+        return $null
+    }
+    catch {
+        Log ("Failed to create Fabric Notebook '{0}': {1}" -f $DisplayName, $_.Exception.Message) "Yellow"
+        return $null
+    }
+}
+
+        # Pre-create Fabric Notebook(s) and inject NotebookId into $convertedObj before export
+        try {
+            if ($convertedObj -and $convertedObj.result -and $convertedObj.result.exportableFabricResources) {
+                foreach ($res in $convertedObj.result.exportableFabricResources) {
+                    if ($res.resourceType -ne 'DataPipeline') { continue }
+                    if (-not $res.export -or -not $res.export.properties -or -not $res.export.properties.activities) { continue }
+                    $acts = $res.export.properties.activities
+                    for ($i = 0; $i -lt $acts.Count; $i++) {
+                        $act = $acts[$i]
+                        if ($act.type -eq 'TridentNotebook') {
+                            $nbName = $act.name
+                            Log ("Notebook activity detected: {0}. Ensuring Fabric notebook exists..." -f $nbName) "Gray"
+                            $nbId = New-FabricNotebookItem -WorkspaceId $FabricWorkspaceId -DisplayName $nbName -BearerToken $fabricSecureToken
+                            if ($nbId) {
+                                # Inject IDs expected by exporter
+                                if (-not $act.typeProperties) { $act | Add-Member -NotePropertyName typeProperties -NotePropertyValue (@{}) }
+                                $act.typeProperties.notebookId = $nbId
+                                $act.typeProperties.workspaceId = $FabricWorkspaceId
+                                $acts[$i] = $act
+                                Log ("Bound NotebookId for activity '{0}' → {1}" -f $nbName, $nbId) "Green"
+                            } else {
+                                Log ("Could not create Fabric notebook for activity '{0}'. Export may fail with NotebookId null." -f $nbName) "Yellow"
+                            }
+                        }
+                    }
+                    $res.export.properties.activities = $acts
+                }
+            }
+        } catch {
+            Log ("Notebook pre-create/bind step encountered an error: {0}" -f $_.Exception.Message) "Yellow"
+        }
+
+        $convertedObj |
+            Import-FabricResolutions -ResolutionsFilename $ResolutionsFile |
+            Export-FabricResources `
+                -Region $Region `
+                -Workspace $FabricWorkspaceId `
+                -Token $fabricSecureToken
         Log "197 Migration complete for pipeline: $PipelineName" "Green"
     }
     catch {
