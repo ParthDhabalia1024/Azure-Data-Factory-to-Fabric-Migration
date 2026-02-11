@@ -1,1 +1,213 @@
-"{\r\n  \"state\": \"Succeeded\",\r\n  \"alerts\": [],\r\n  \"result\": {\r\n    \"exportableFabricResources\": [\r\n      {\r\n        \"resourceType\": \"Connection\",\r\n        \"resourceName\": \"AzureBlobStorage1\",\r\n        \"resolve\": [\r\n          {\r\n            \"type\": \"LinkedServiceToConnectionId\",\r\n            \"key\": \"AzureBlobStorage1\",\r\n            \"targetPath\": \"id\",\r\n            \"hint\": {\r\n              \"linkedServiceName\": \"AzureBlobStorage1\",\r\n              \"connectionType\": \"AzureBlobStorage\",\r\n              \"datasource\": \"datalake2009\",\r\n              \"template\": {\r\n                \"type\": \"LinkedServiceToConnectionId\",\r\n                \"key\": \"AzureBlobStorage1\",\r\n                \"value\": \"<Fabric Connection ID>\"\r\n              }\r\n            }\r\n          }\r\n        ],\r\n        \"export\": {\r\n          \"id\": \"00000000-0000-0000-0000-000000000000\"\r\n        }\r\n      },\r\n      {\r\n        \"resourceType\": \"Connection\",\r\n        \"resourceName\": \"AzureSynapseArtifacts1\",\r\n        \"resolve\": [\r\n          {\r\n            \"type\": \"LinkedServiceToConnectionId\",\r\n            \"key\": \"AzureSynapseArtifacts1\",\r\n            \"targetPath\": \"id\",\r\n            \"hint\": {\r\n              \"linkedServiceName\": \"AzureSynapseArtifacts1\",\r\n              \"connectionType\": \"AzureSynapseArtifacts\",\r\n              \"datasource\": \"synapse-fabricmigration.dev.azuresynapse.net\",\r\n              \"template\": {\r\n                \"type\": \"LinkedServiceToConnectionId\",\r\n                \"key\": \"AzureSynapseArtifacts1\",\r\n                \"value\": \"<Fabric Connection ID>\"\r\n              }\r\n            }\r\n          }\r\n        ],\r\n        \"export\": {\r\n          \"id\": \"00000000-0000-0000-0000-000000000000\"\r\n        }\r\n      },\r\n      {\r\n        \"resourceType\": \"DataPipeline\",\r\n        \"resourceName\": \"ParthPipeline2\",\r\n        \"resolve\": [\r\n          {\r\n            \"type\": \"AdfResourceNameToFabricResourceId\",\r\n            \"key\": \"Connection:AzureBlobStorage1\",\r\n            \"targetPath\": \"properties.activities[0].typeProperties.source.datasetSettings.externalReferences.connection\"\r\n          },\r\n          {\r\n            \"type\": \"AdfResourceNameToFabricResourceId\",\r\n            \"key\": \"Connection:AzureBlobStorage1\",\r\n            \"targetPath\": \"properties.activities[0].typeProperties.sink.datasetSettings.externalReferences.connection\"\r\n          },\r\n          {\r\n            \"type\": \"AdfResourceNameToFabricResourceId\",\r\n            \"key\": \"Connection:AzureSynapseArtifacts1\",\r\n            \"targetPath\": \"properties.activities[1].externalReferences.connection\"\r\n          },\r\n          {\r\n            \"type\": \"WorkspaceId\",\r\n            \"targetPath\": \"properties.activities[1].typeProperties.workspaceId\"\r\n          },\r\n          {\r\n            \"type\": \"AdfResourceNameToFabricResourceId\",\r\n            \"key\": \"Notebook:SynapseNotebook--Notebook1\",\r\n            \"targetPath\": \"properties.activities[1].typeProperties.notebookId\"\r\n          }\r\n        ],\r\n        \"export\": {\r\n          \"name\": \"ParthPipeline2\",\r\n          \"properties\": {\r\n            \"activities\": [\r\n              {\r\n                \"name\": \"Copy data1\",\r\n                \"type\": \"Copy\",\r\n                \"dependsOn\": [],\r\n                \"policy\": {\r\n                  \"timeout\": \"0.12:00:00\",\r\n                  \"retry\": 0,\r\n                  \"retryIntervalInSeconds\": 30,\r\n                  \"secureOutput\": false,\r\n                  \"secureInput\": false\r\n                },\r\n                \"description\": null,\r\n                \"typeProperties\": {\r\n                  \"source\": {\r\n                    \"type\": \"DelimitedTextSource\",\r\n                    \"storeSettings\": {\r\n                      \"type\": \"AzureBlobStorageReadSettings\",\r\n                      \"recursive\": true,\r\n                      \"enablePartitionDiscovery\": false\r\n                    },\r\n                    \"formatSettings\": {\r\n                      \"type\": \"DelimitedTextReadSettings\"\r\n                    },\r\n                    \"datasetSettings\": {\r\n                      \"annotations\": [],\r\n                      \"type\": \"DelimitedText\",\r\n                      \"externalReferences\": {\r\n                        \"connection\": \"00000000-0000-0000-0000-000000000000\"\r\n                      },\r\n                      \"typeProperties\": {\r\n                        \"location\": {\r\n                          \"type\": \"AzureBlobStorageLocation\",\r\n                          \"fileName\": \"LMS_09-01-2023.csv\",\r\n                          \"folderPath\": \"raw\",\r\n                          \"container\": \"fabricprod\"\r\n                        },\r\n                        \"columnDelimiter\": \",\",\r\n                        \"escapeChar\": \"\\\\\",\r\n                        \"firstRowAsHeader\": true,\r\n                        \"quoteChar\": \"\\\"\"\r\n                      },\r\n                      \"schema\": []\r\n                    }\r\n                  },\r\n                  \"sink\": {\r\n                    \"type\": \"DelimitedTextSink\",\r\n                    \"storeSettings\": {\r\n                      \"type\": \"AzureBlobStorageWriteSettings\"\r\n                    },\r\n                    \"formatSettings\": {\r\n                      \"type\": \"DelimitedTextWriteSettings\",\r\n                      \"quoteAllText\": true,\r\n                      \"fileExtension\": \".txt\"\r\n                    },\r\n                    \"datasetSettings\": {\r\n                      \"annotations\": [],\r\n                      \"type\": \"DelimitedText\",\r\n                      \"externalReferences\": {\r\n                        \"connection\": \"00000000-0000-0000-0000-000000000000\"\r\n                      },\r\n                      \"typeProperties\": {\r\n                        \"location\": {\r\n                          \"type\": \"AzureBlobStorageLocation\",\r\n                          \"folderPath\": \"raw\",\r\n                          \"container\": \"fabricprod\"\r\n                        },\r\n                        \"columnDelimiter\": \",\",\r\n                        \"escapeChar\": \"\\\\\",\r\n                        \"firstRowAsHeader\": true,\r\n                        \"quoteChar\": \"\\\"\"\r\n                      },\r\n                      \"schema\": []\r\n                    }\r\n                  },\r\n                  \"enableStaging\": false,\r\n                  \"translator\": {\r\n                    \"type\": \"TabularTranslator\",\r\n                    \"typeConversion\": true,\r\n                    \"typeConversionSettings\": {\r\n                      \"allowDataTruncation\": true,\r\n                      \"treatBooleanAsNumber\": false\r\n                    }\r\n                  }\r\n                }\r\n              },\r\n              {\r\n                \"name\": \"Notebook1\",\r\n                \"type\": \"TridentNotebook\",\r\n                \"dependsOn\": [\r\n                  {\r\n                    \"activity\": \"Copy data1\",\r\n                    \"dependencyConditions\": [\r\n                      \"Succeeded\"\r\n                    ]\r\n                  }\r\n                ],\r\n                \"policy\": {\r\n                  \"timeout\": \"0.12:00:00\",\r\n                  \"retry\": 0,\r\n                  \"retryIntervalInSeconds\": 30,\r\n                  \"secureOutput\": false,\r\n                  \"secureInput\": false\r\n                },\r\n                \"description\": null,\r\n                \"typeProperties\": {\r\n                  \"notebookId\": \"00000000-0000-0000-0000-000000000000\",\r\n                  \"workspaceId\": \"00000000-0000-0000-0000-000000000000\"\r\n                },\r\n                \"externalReferences\": {\r\n                  \"connection\": \"00000000-0000-0000-0000-000000000000\"\r\n                }\r\n              }\r\n            ],\r\n            \"parameters\": {\r\n              \"table_name\": {\r\n                \"type\": \"string\",\r\n                \"defaultValue\": \"shivaan.Persons\"\r\n              }\r\n            }\r\n          },\r\n          \"annotations\": []\r\n        }\r\n      }\r\n    ]\r\n  },\r\n  \"resolutions\": []\r\n}"
+{
+  "state": "Succeeded",
+  "alerts": [],
+  "result": {
+    "exportableFabricResources": [
+      {
+        "resourceType": "Connection",
+        "resourceName": "AzureBlobStorage1",
+        "resolve": [
+          {
+            "type": "LinkedServiceToConnectionId",
+            "key": "AzureBlobStorage1",
+            "targetPath": "id",
+            "hint": {
+              "linkedServiceName": "AzureBlobStorage1",
+              "connectionType": "AzureBlobStorage",
+              "datasource": "datalake2009",
+              "template": {
+                "type": "LinkedServiceToConnectionId",
+                "key": "AzureBlobStorage1",
+                "value": "<Fabric Connection ID>"
+              }
+            }
+          }
+        ],
+        "export": {
+          "id": "00000000-0000-0000-0000-000000000000"
+        }
+      },
+      {
+        "resourceType": "Connection",
+        "resourceName": "AzureSynapseArtifacts1",
+        "resolve": [
+          {
+            "type": "LinkedServiceToConnectionId",
+            "key": "AzureSynapseArtifacts1",
+            "targetPath": "id",
+            "hint": {
+              "linkedServiceName": "AzureSynapseArtifacts1",
+              "connectionType": "AzureSynapseArtifacts",
+              "datasource": "synapse-fabricmigration.dev.azuresynapse.net",
+              "template": {
+                "type": "LinkedServiceToConnectionId",
+                "key": "AzureSynapseArtifacts1",
+                "value": "<Fabric Connection ID>"
+              }
+            }
+          }
+        ],
+        "export": {
+          "id": "00000000-0000-0000-0000-000000000000"
+        }
+      },
+      {
+        "resourceType": "DataPipeline",
+        "resourceName": "ParthPipeline2",
+        "resolve": [
+          {
+            "type": "AdfResourceNameToFabricResourceId",
+            "key": "Connection:AzureBlobStorage1",
+            "targetPath": "properties.activities[0].typeProperties.source.datasetSettings.externalReferences.connection"
+          },
+          {
+            "type": "AdfResourceNameToFabricResourceId",
+            "key": "Connection:AzureBlobStorage1",
+            "targetPath": "properties.activities[0].typeProperties.sink.datasetSettings.externalReferences.connection"
+          },
+          {
+            "type": "AdfResourceNameToFabricResourceId",
+            "key": "Connection:AzureSynapseArtifacts1",
+            "targetPath": "properties.activities[1].externalReferences.connection"
+          },
+          {
+            "type": "WorkspaceId",
+            "targetPath": "properties.activities[1].typeProperties.workspaceId"
+          },
+          {
+            "type": "AdfResourceNameToFabricResourceId",
+            "key": "Notebook:SynapseNotebook--Notebook1",
+            "targetPath": "properties.activities[1].typeProperties.notebookId"
+          }
+        ],
+        "export": {
+          "name": "ParthPipeline2",
+          "properties": {
+            "activities": [
+              {
+                "name": "Copy data1",
+                "type": "Copy",
+                "dependsOn": [],
+                "policy": {
+                  "timeout": "0.12:00:00",
+                  "retry": 0,
+                  "retryIntervalInSeconds": 30,
+                  "secureOutput": false,
+                  "secureInput": false
+                },
+                "description": null,
+                "typeProperties": {
+                  "source": {
+                    "type": "DelimitedTextSource",
+                    "storeSettings": {
+                      "type": "AzureBlobStorageReadSettings",
+                      "recursive": true,
+                      "enablePartitionDiscovery": false
+                    },
+                    "formatSettings": {
+                      "type": "DelimitedTextReadSettings"
+                    },
+                    "datasetSettings": {
+                      "annotations": [],
+                      "type": "DelimitedText",
+                      "externalReferences": {
+                        "connection": "00000000-0000-0000-0000-000000000000"
+                      },
+                      "typeProperties": {
+                        "location": {
+                          "type": "AzureBlobStorageLocation",
+                          "fileName": "LMS_09-01-2023.csv",
+                          "folderPath": "raw",
+                          "container": "fabricprod"
+                        },
+                        "columnDelimiter": ",",
+                        "escapeChar": "\\",
+                        "firstRowAsHeader": true,
+                        "quoteChar": "\""
+                      },
+                      "schema": []
+                    }
+                  },
+                  "sink": {
+                    "type": "DelimitedTextSink",
+                    "storeSettings": {
+                      "type": "AzureBlobStorageWriteSettings"
+                    },
+                    "formatSettings": {
+                      "type": "DelimitedTextWriteSettings",
+                      "quoteAllText": true,
+                      "fileExtension": ".txt"
+                    },
+                    "datasetSettings": {
+                      "annotations": [],
+                      "type": "DelimitedText",
+                      "externalReferences": {
+                        "connection": "00000000-0000-0000-0000-000000000000"
+                      },
+                      "typeProperties": {
+                        "location": {
+                          "type": "AzureBlobStorageLocation",
+                          "folderPath": "raw",
+                          "container": "fabricprod"
+                        },
+                        "columnDelimiter": ",",
+                        "escapeChar": "\\",
+                        "firstRowAsHeader": true,
+                        "quoteChar": "\""
+                      },
+                      "schema": []
+                    }
+                  },
+                  "enableStaging": false,
+                  "translator": {
+                    "type": "TabularTranslator",
+                    "typeConversion": true,
+                    "typeConversionSettings": {
+                      "allowDataTruncation": true,
+                      "treatBooleanAsNumber": false
+                    }
+                  }
+                }
+              },
+              {
+                "name": "Notebook1",
+                "type": "TridentNotebook",
+                "dependsOn": [
+                  {
+                    "activity": "Copy data1",
+                    "dependencyConditions": [
+                      "Succeeded"
+                    ]
+                  }
+                ],
+                "policy": {
+                  "timeout": "0.12:00:00",
+                  "retry": 0,
+                  "retryIntervalInSeconds": 30,
+                  "secureOutput": false,
+                  "secureInput": false
+                },
+                "description": null,
+                "typeProperties": {
+                  "notebookId": "00000000-0000-0000-0000-000000000000",
+                  "workspaceId": "00000000-0000-0000-0000-000000000000"
+                },
+                "externalReferences": {
+                  "connection": "00000000-0000-0000-0000-000000000000"
+                }
+              }
+            ],
+            "parameters": {
+              "table_name": {
+                "type": "string",
+                "defaultValue": "shivaan.Persons"
+              }
+            }
+          },
+          "annotations": []
+        }
+      }
+    ]
+  },
+  "resolutions": []
+}

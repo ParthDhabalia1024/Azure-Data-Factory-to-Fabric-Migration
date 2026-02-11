@@ -1,7 +1,5 @@
 {
-  "name": "migrationtest",
   "properties": {
-    "annotations": [],
     "parameters": {},
     "activities": [
       {
@@ -14,46 +12,17 @@
           "SecureOutput": false,
           "AdditionalProperties": {}
         },
-        "outputs": [
+        "inputs": [
           {
             "type": "DatasetReference",
-            "parameters": {},
-            "referenceName": "DelimitedText2"
+            "referenceName": "DelimitedText1",
+            "parameters": {}
           }
         ],
         "dependsOn": [],
+        "type": "Copy",
         "userProperties": [],
         "typeProperties": {
-          "translator": {
-            "type": "TabularTranslator",
-            "typeConversion": true,
-            "typeConversionSettings": {
-              "allowDataTruncation": true,
-              "treatBooleanAsNumber": false
-            }
-          },
-          "sink": {
-            "StoreSettings": {
-              "BlockSizeInMB": null,
-              "MaxConcurrentConnections": null,
-              "CopyBehavior": null,
-              "Metadata": [],
-              "AdditionalProperties": {}
-            },
-            "FormatSettings": {
-              "QuoteAllText": true,
-              "FileExtension": ".txt",
-              "MaxRowsPerFile": null,
-              "FileNamePrefix": null,
-              "AdditionalProperties": {}
-            },
-            "WriteBatchSize": null,
-            "WriteBatchTimeout": null,
-            "SinkRetryCount": null,
-            "SinkRetryWait": null,
-            "MaxConcurrentConnections": null,
-            "AdditionalProperties": {}
-          },
           "source": {
             "StoreSettings": {
               "Recursive": true,
@@ -79,22 +48,49 @@
             "SourceRetryWait": null,
             "MaxConcurrentConnections": null,
             "AdditionalProperties": {}
+          },
+          "sink": {
+            "StoreSettings": {
+              "BlockSizeInMB": null,
+              "MaxConcurrentConnections": null,
+              "CopyBehavior": null,
+              "Metadata": [],
+              "AdditionalProperties": {}
+            },
+            "FormatSettings": {
+              "QuoteAllText": true,
+              "FileExtension": ".txt",
+              "MaxRowsPerFile": null,
+              "FileNamePrefix": null,
+              "AdditionalProperties": {}
+            },
+            "WriteBatchSize": null,
+            "WriteBatchTimeout": null,
+            "SinkRetryCount": null,
+            "SinkRetryWait": null,
+            "MaxConcurrentConnections": null,
+            "AdditionalProperties": {}
+          },
+          "translator": {
+            "type": "TabularTranslator",
+            "typeConversion": true,
+            "typeConversionSettings": {
+              "allowDataTruncation": true,
+              "treatBooleanAsNumber": false
+            }
           }
         },
-        "type": "Copy",
-        "inputs": [
+        "outputs": [
           {
             "type": "DatasetReference",
-            "parameters": {},
-            "referenceName": "DelimitedText1"
+            "referenceName": "DelimitedText2",
+            "parameters": {}
           }
         ]
-      },
-      {
-        "name": "Notebook 1",
-        "type": "Execute"
       }
     ],
-    "variables": {}
-  }
+    "variables": {},
+    "annotations": []
+  },
+  "name": "migrationtest"
 }
