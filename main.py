@@ -1302,6 +1302,7 @@ from Migration.migration_score import (
 from Migration.utilities import _normalize_type
 from Migration.constants import CONTROL_ACTIVITY_TYPES
 from Migration.ui_config import apply_custom_theme, render_header_with_logo
+from utils.synapse_notebook_migrator import migrate_synapse_notebook_to_fabric, list_synapse_notebooks
 
 
 def _extract_synapse_datasets_and_linked_services(
@@ -2023,6 +2024,75 @@ def main() -> None:
                         st.dataframe(ds_rows_syn, hide_index=True, width="stretch")
                     else:
                         st.error(f"Failed to load Synapse datasets: {e}")
+
+            # 4b) Notebooks (Synapse → Fabric)
+            with st.container(border=True):
+                st.subheader("📓 Migrate Synapse Notebook to Microsoft Fabric")
+                st.caption("Export a Synapse notebook (.ipynb) from your workspace and import it into a Fabric workspace.")
+
+                # Try to load notebooks to drive a dropdown for accuracy
+                nb_options: List[str] = []
+                nb_error: Optional[str] = None
+                try:
+                    discovered = list_synapse_notebooks(selected_synapse_ws)
+                    nb_options = sorted([n.get("name") for n in discovered if isinstance(n, dict) and n.get("name")])
+                except Exception as e:
+                    nb_error = str(e)
+
+                nb_col1, nb_col2 = st.columns(2)
+                with nb_col1:
+                    if nb_options:
+                        nb_name = st.selectbox(
+                            "Select Synapse notebook",
+                            options=nb_options,
+                            index=0,
+                            key=f"nb_select_{selected_synapse_ws}",
+                        )
+                    else:
+                        if nb_error:
+                            st.warning(f"Could not auto-load notebooks: {nb_error}")
+                        nb_name = st.text_input(
+                            "Synapse notebook name",
+                            value="",
+                            placeholder="Enter notebook name as shown in Synapse Studio",
+                            key=f"nb_name_{selected_synapse_ws}",
+                        )
+                with nb_col2:
+                    nb_workspace_id = st.text_input(
+                        "Fabric Workspace ID (for notebooks)",
+                        value="",
+                        placeholder="Enter Fabric Workspace ID (UUID)",
+                        key=f"nb_ws_{selected_synapse_ws}",
+                    )
+                nb_run = st.button(
+                    "📥 Migrate Notebook to Fabric",
+                    type="secondary",
+                    key=f"nb_migrate_{selected_synapse_ws}",
+                )
+                if nb_run:
+                    if not nb_name:
+                        st.warning("Please enter a Synapse notebook name.")
+                    elif not nb_workspace_id:
+                        st.warning("Please enter a Fabric Workspace ID for the notebook import.")
+                    else:
+                        try:
+                            with st.spinner("Exporting notebook from Synapse and importing into Fabric..."):
+                                result = migrate_synapse_notebook_to_fabric(
+                                    synapse_workspace_name=selected_synapse_ws,
+                                    notebook_name=nb_name,
+                                    fabric_workspace_id=nb_workspace_id,
+                                    output_dir=os.path.join(UTILS_DIR, "exported_notebooks"),
+                                )
+                            st.success("✅ Notebook migrated to Fabric.")
+                            # Only show details if useful; suppress noisy error fields
+                            if isinstance(result, dict):
+                                cleaned = {k: v for k, v in result.items() if k.upper() != "ERROR"}
+                                if cleaned:
+                                    st.json(cleaned)
+                        except FileNotFoundError as fnf:
+                            st.error(f"Notebook not found: {fnf}")
+                        except Exception as exc:
+                            st.error(f"Notebook migration failed: {exc}")
 
             # 5) Migration (unchanged)
             syn_pipeline_names = sorted({r.get("PipelineName") for r in syn_rows if r.get("PipelineName")})
