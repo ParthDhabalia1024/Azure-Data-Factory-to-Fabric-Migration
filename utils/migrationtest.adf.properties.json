@@ -1,27 +1,16 @@
 {
   "properties": {
+    "annotations": [],
     "parameters": {},
     "activities": [
       {
-        "name": "Copy data1",
-        "policy": {
-          "Timeout": "0.12:00:00",
-          "Retry": 0,
-          "RetryIntervalInSeconds": 30,
-          "SecureInput": false,
-          "SecureOutput": false,
-          "AdditionalProperties": {}
-        },
-        "inputs": [
+        "outputs": [
           {
             "type": "DatasetReference",
-            "referenceName": "DelimitedText1",
+            "referenceName": "DelimitedText2",
             "parameters": {}
           }
         ],
-        "dependsOn": [],
-        "type": "Copy",
-        "userProperties": [],
         "typeProperties": {
           "source": {
             "StoreSettings": {
@@ -80,16 +69,32 @@
             }
           }
         },
-        "outputs": [
+        "userProperties": [],
+        "name": "Copy data1",
+        "inputs": [
           {
             "type": "DatasetReference",
-            "referenceName": "DelimitedText2",
+            "referenceName": "DelimitedText1",
             "parameters": {}
           }
-        ]
+        ],
+        "policy": {
+          "Timeout": "0.12:00:00",
+          "Retry": 0,
+          "RetryIntervalInSeconds": 30,
+          "SecureInput": false,
+          "SecureOutput": false,
+          "AdditionalProperties": {}
+        },
+        "dependsOn": [],
+        "type": "Copy"
       }
     ],
-    "variables": {},
-    "annotations": []
+    "variables": {
+      "DemoParam": {
+        "Type": {},
+        "DefaultValue": null
+      }
+    }
   }
 }
