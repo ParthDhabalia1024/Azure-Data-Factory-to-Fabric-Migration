@@ -58,6 +58,34 @@
 
 # if (-not $adf) {
 #     Write-Host "Creating temporary ADF: $TempAdfName" -ForegroundColor Yellow
+
+# <#
+# .SYNOPSIS
+#     Synapse → ADF-compatible JSON → Fabric migration
+
+# .DESCRIPTION
+#     - Fetches Synapse pipeline via Dev API
+#     - Normalizes to ADF v2 schema
+#     - Feeds JSON into existing Fabric migration script
+# #>
+# (Legacy commented section)
+
+# # -------------------------------------------------
+# # Tokens
+# # -------------------------------------------------
+# $armToken = (Get-AzAccessToken -ResourceUrl "https://management.azure.com/").Token
+# $synapseToken = (Get-AzAccessToken -ResourceUrl "https://dev.azuresynapse.net").Token
+
+# # -------------------------------------------------
+# # Ensure temp ADF exists
+# # -------------------------------------------------
+# $adf = Get-AzDataFactoryV2 `
+#     -ResourceGroupName $ResourceGroupName `
+#     -Name $TempAdfName `
+#     -ErrorAction SilentlyContinue
+
+# if (-not $adf) {
+#     Write-Host "Creating temporary ADF: $TempAdfName" -ForegroundColor Yellow
 #     $adf = New-AzDataFactoryV2 `
 #         -ResourceGroupName $ResourceGroupName `
 #         -Name $TempAdfName `
@@ -378,6 +406,71 @@ function Get-PropCI($obj, $name) {
     return $null
 }
 
+function Find-DeepPropCI {
+    param(
+        [Parameter(Mandatory = $true)]$obj,
+        [Parameter(Mandatory = $true)][string]$name
+    )
+    if (-not $obj) { return $null }
+    # Work with any object that has PSObject properties (including Az.Synapse SDK objects)
+    try {
+        $direct = Get-PropCI $obj $name
+        if ($null -ne $direct) { return $direct }
+        foreach ($p in $obj.PSObject.Properties) {
+            $res = Find-DeepPropCI -obj $p.Value -name $name
+            if ($null -ne $res) { return $res }
+        }
+    } catch { }
+    elseif ($obj -is [System.Collections.IEnumerable] -and -not ($obj -is [string])) {
+        foreach ($it in $obj) {
+            $res = Find-DeepPropCI -obj $it -name $name
+            if ($null -ne $res) { return $res }
+        }
+    }
+    return $null
+}
+
+function Convert-ToHashtable {
+    param([Parameter(Mandatory = $false)]$obj)
+    if (-not $obj) { return @{} }
+    if ($obj -is [hashtable]) { return $obj }
+    $out = @{}
+    try {
+        if ($obj -is [System.Collections.IDictionary]) {
+            foreach ($k in $obj.Keys) { $out[[string]$k] = $obj[$k] }
+            return $out
+        }
+    } catch { }
+    try {
+        foreach ($p in $obj.PSObject.Properties) {
+            $out[[string]$p.Name] = $p.Value
+        }
+    } catch { }
+    return $out
+}
+
+function Normalize-DependsOn {
+    param([Parameter(Mandatory = $false)]$dependsOn)
+    if (-not $dependsOn) { return @() }
+    $out = @()
+    foreach ($d in $dependsOn) {
+        if (-not $d) { continue }
+        $act = (Get-PropCI $d 'activity'); if (-not $act) { $act = (Get-PropCI $d 'Activity') }
+        $condsRaw = (Get-PropCI $d 'dependencyConditions'); if (-not $condsRaw) { $condsRaw = (Get-PropCI $d 'DependencyConditions') }
+        $conds = @()
+        if ($condsRaw) {
+            foreach ($c in $condsRaw) {
+                if ($c -is [string] -and $c) { $conds += $c }
+            }
+        }
+        if (-not $conds -or $conds.Count -eq 0) { $conds = @('Succeeded') }
+        if ($act) {
+            $out += @{ activity = $act; dependencyConditions = $conds }
+        }
+    }
+    return @($out)
+}
+
 # Normalize variables into ADF shape { type = 'String'; defaultValue = <val> }
 function Normalize_Variables {
     param([hashtable]$vars)
@@ -415,29 +508,36 @@ else {
 
 # Transform Synapse activities to ADF activities (handle Copy shape)
 function Convert-SynapseActivityToAdf($a) {
-    $name = $a.Name
+    $name = (Get-PropCI $a 'name'); if (-not $name) { $name = $a.Name }
+    $aType = (Get-PropCI $a 'type'); if (-not $aType) { $aType = $a.Type }
+    $aTp = (Get-PropCI $a 'typeProperties'); if (-not $aTp) { $aTp = $a.TypeProperties }
+    $aSource = (Get-PropCI $a 'source'); if (-not $aSource) { $aSource = $a.Source }
+    $aSink = (Get-PropCI $a 'sink'); if (-not $aSink) { $aSink = $a.Sink }
+
     # Heuristic: presence of Source/Sink implies Copy
-    $hasCopyShape = ($a.PSObject.Properties.Name -contains 'Source') -or ($a.PSObject.Properties.Name -contains 'Sink')
+    $hasCopyShape = ($null -ne $aSource) -or ($null -ne $aSink)
     if ($hasCopyShape) {
         $inputs = @()
-        if ($a.Inputs) {
-            foreach ($inp in $a.Inputs) {
+        $rawInputs = (Get-PropCI $a 'inputs'); if (-not $rawInputs) { $rawInputs = $a.Inputs }
+        if ($rawInputs) {
+            foreach ($inp in $rawInputs) {
                 $inputs += @{ referenceName = $inp.ReferenceName; type = 'DatasetReference'; parameters = ($inp.Parameters ? $inp.Parameters : @{}) }
             }
         }
         $outputs = @()
-        if ($a.Outputs) {
-            foreach ($outp in $a.Outputs) {
+        $rawOutputs = (Get-PropCI $a 'outputs'); if (-not $rawOutputs) { $rawOutputs = $a.Outputs }
+        if ($rawOutputs) {
+            foreach ($outp in $rawOutputs) {
                 $outputs += @{ referenceName = $outp.ReferenceName; type = 'DatasetReference'; parameters = ($outp.Parameters ? $outp.Parameters : @{}) }
             }
         }
         $typeProps = @{}
-        if ($a.TypeProperties) {
-            $typeProps = $a.TypeProperties
+        if ($aTp) {
+            $typeProps = $aTp
         }
         # Ensure source/sink present; some shapes expose them at top level, others inside TypeProperties
-        if (-not $typeProps.source -and $a.Source) { $typeProps.source = $a.Source }
-        if (-not $typeProps.sink   -and $a.Sink)   { $typeProps.sink   = $a.Sink }
+        if (-not $typeProps.source -and $aSource) { $typeProps.source = $aSource }
+        if (-not $typeProps.sink   -and $aSink)   { $typeProps.sink   = $aSink }
         if ($a.Translator) { $typeProps.translator = $a.Translator }
         return @{
             name = $name
@@ -446,67 +546,100 @@ function Convert-SynapseActivityToAdf($a) {
             outputs = $outputs
             typeProperties = $typeProps
             policy = $a.Policy
-            dependsOn = ($a.DependsOn ? $a.DependsOn : @())
+            dependsOn = @((Normalize-DependsOn -dependsOn (Get-PropCI $a 'DependsOn')))
             userProperties = ($a.UserProperties ? $a.UserProperties : @())
         }
     }
-    elseif (
-        (($a.Type) -and ($a.Type.ToString().ToLower() -in @('setvariable','set variable','set_variable'))) -or
-        (($a.type) -and ($a.type.ToString().ToLower() -in @('setvariable','set variable','set_variable'))) -or
-        (($a.TypeProperties) -and ((Get-PropCI $a.TypeProperties 'variableName') -or (Get-PropCI $a.TypeProperties 'value')))
-    ) {
+    else {
+        # Robust SetVariable detection:
+        # In some Az.Synapse/ARM shapes, the activity type may come through as Execute but still contains variableName/value.
+        $svVarName = Find-DeepPropCI -obj $a -name 'variableName'
+        if (-not $svVarName) { $svVarName = Find-DeepPropCI -obj $a -name 'VariableName' }
+        $svValue = Find-DeepPropCI -obj $a -name 'value'
+        if (-not $svValue) { $svValue = Find-DeepPropCI -obj $a -name 'Value' }
+        $isSetVar = $false
+        if (($aType) -and ($aType.ToString().ToLower() -in @('setvariable','set variable','set_variable'))) { $isSetVar = $true }
+        if ($svVarName -or $svValue) { $isSetVar = $true }
+
+        if ($isSetVar) {
         # Map SetVariable activity to ADF shape
         $varName = $null; $val = $null
-        if ($a.TypeProperties) {
-            $varName = Get-PropCI $a.TypeProperties 'variableName'
-            $val = Get-PropCI $a.TypeProperties 'value'
+        if ($aTp) {
+            $varName = Get-PropCI $aTp 'variableName'
+            $val = Get-PropCI $aTp 'value'
         }
-        if (-not $varName) { $varName = Get-PropCI $a 'variableName' }
-        if (-not $val) { $val = Get-PropCI $a 'value' }
+        if (-not $varName) { $varName = $svVarName }
+        if (-not $val) { $val = $svValue }
         if ($val -is [string]) {
             if ($val.Length -ge 2 -and $val.StartsWith('"') -and $val.EndsWith('"')) {
                 $val = $val.Substring(1, $val.Length - 2)
             }
         }
-        # Prefer ADF's native expression object: { type: 'Expression', value: <expr> }
+        # Create a pipeline parameter to hold the value, then set variable from that parameter.
+        # This matches the requested pattern and tends to upgrade better in Fabric.
+        $paramName = $null
+        if ($varName) {
+            $paramName = ("p_{0}" -f $varName)
+            if (-not $script:adfParameters) { $script:adfParameters = @{} }
+            if (-not $script:adfParameters.ContainsKey($paramName)) {
+                $script:adfParameters[$paramName] = @{ type = 'String'; defaultValue = $val }
+            }
+        }
+
         $exprValue = $null
-        if ($val -is [hashtable] -or $val -is [pscustomobject]) {
-            if ($val.type -and $val.value) { $exprValue = $val } else { $exprValue = @{ type = 'Expression'; value = ([string]$val) } }
-        }
-        elseif ($val -is [string]) {
-            $escaped = $val.Replace("'", "''")
-            $exprValue = @{ type = 'Expression'; value = ("'{0}'" -f $escaped) }
-        }
-        elseif ($val -is [int] -or $val -is [double] -or $val -is [decimal]) {
-            $exprValue = @{ type = 'Expression'; value = ([string]$val) }
+        if ($paramName) {
+            $exprValue = @{ type = 'Expression'; value = ("@pipeline().parameters.{0}" -f $paramName) }
         }
         else {
-            $s = [string]$val
-            $escaped = $s.Replace("'", "''")
-            $exprValue = @{ type = 'Expression'; value = ("'{0}'" -f $escaped) }
+            # Fallback: constant expression
+            if ($val -is [hashtable] -or $val -is [pscustomobject]) {
+                if ($val.type -and $val.value) { $exprValue = $val } else { $exprValue = @{ type = 'Expression'; value = ([string]$val) } }
+            }
+            elseif ($val -is [string]) {
+                $escaped = $val.Replace("'", "''")
+                $exprValue = @{ type = 'Expression'; value = ("'{0}'" -f $escaped) }
+            }
+            elseif ($val -is [int] -or $val -is [double] -or $val -is [decimal]) {
+                $exprValue = @{ type = 'Expression'; value = ([string]$val) }
+            }
+            else {
+                $s = [string]$val
+                $escaped = $s.Replace("'", "''")
+                $exprValue = @{ type = 'Expression'; value = ("'{0}'" -f $escaped) }
+            }
         }
         return @{
             name = ($a.Name ? $a.Name : 'SetVariable')
             type = 'SetVariable'
             typeProperties = @{ variableName = $varName; value = $exprValue }
-            dependsOn = ($a.DependsOn ? $a.DependsOn : @())
+            dependsOn = @((Normalize-DependsOn -dependsOn (Get-PropCI $a 'DependsOn')))
             userProperties = ($a.UserProperties ? $a.UserProperties : @())
             policy = ($a.Policy ? $a.Policy : $null)
         }
-    }
-    else {
+        }
+
         # Fallback: pass-through minimal shape
         return @{
             name = ($a.Name ? $a.Name : ($a.name ? $a.name : 'Activity'))
-            type = ($a.Type ? $a.Type : ($a.type ? $a.type : 'Execute'))
+            type = ($aType ? $aType : ($a.Type ? $a.Type : ($a.type ? $a.type : 'Execute')))
         }
     }
 }
 
 $activities = @()
+$script:adfParameters = Convert-ToHashtable -obj $parameters
+
+# Dump raw Synapse activities for troubleshooting schema/casing issues
+try {
+    $rawActsPath = Join-Path $PSScriptRoot ("{0}.synapse.activities.raw.json" -f $PipelineName)
+    ($activitiesRaw | ConvertTo-Json -Depth 100) | Out-File -FilePath $rawActsPath -Encoding utf8
+    Write-Host ("📝 Wrote raw Synapse activities to {0}" -f $rawActsPath) -ForegroundColor DarkGray
+} catch { }
+
 foreach ($a in $activitiesRaw) {
     $activities += (Convert-SynapseActivityToAdf -a $a)
 }
+$parameters = $script:adfParameters
 
 # Normalize variables now that we have them
 $variables = Normalize_Variables -vars $variables

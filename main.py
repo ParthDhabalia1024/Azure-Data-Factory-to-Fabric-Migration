@@ -1494,6 +1494,16 @@ def main() -> None:
                 ls_rows = []
                 ls_types = []
 
+            ls_type_by_name: Dict[str, str] = {}
+            try:
+                for r in ls_rows:
+                    n = (r.get("LinkedService") or "").strip()
+                    t = (r.get("LinkedServiceType") or "").strip()
+                    if n:
+                        ls_type_by_name[n] = t
+            except Exception:
+                ls_type_by_name = {}
+
             # 1) Pipelines and Activities
             with st.container(border=True):
                 st.subheader("📋 Pipelines and Activities")
@@ -1513,6 +1523,19 @@ def main() -> None:
                 for (fac, pipe), items in grouped.items():
                     total_acts = len(items)
                     non_migratable = sum(1 for it in items if (it.get("Migratable") or "").lower() == "no")
+
+                    # Connectivity should be scored per-pipeline based on referenced linked services,
+                    # not all linked services in the factory.
+                    used_ls_names: Set[str] = set()
+                    for it in items:
+                        sls = (it.get("SourceLinkedService") or "").strip()
+                        tls = (it.get("SinkLinkedService") or "").strip()
+                        if sls:
+                            used_ls_names.add(sls)
+                        if tls:
+                            used_ls_names.add(tls)
+                    used_ls_types = [ls_type_by_name.get(n, "") for n in sorted(used_ls_names)]
+
                     control_acts = 0
                     for it in items:
                         nt = _normalize_type(it.get("ActivityType"))
@@ -1521,7 +1544,7 @@ def main() -> None:
 
                     parity_score = score_component_parity(total_acts, non_migratable)
                     non_mig_score = score_non_migratable(non_migratable)
-                    connectivity_score = score_connectivity(ls_types)
+                    connectivity_score = score_connectivity(used_ls_types)
                     orchestration_score = score_orchestration(total_acts, control_acts)
                     total = parity_score + non_mig_score + connectivity_score + orchestration_score
 
@@ -1943,6 +1966,10 @@ def main() -> None:
             # 2) Migration Scoring (same style as ADF)
             with st.container(border=True):
                 st.subheader("📈 Migration Scoring (Fabric Readiness Assessment)")
+                st.caption(
+                    "Scores are effort/risk points (0 = best). "
+                    "If all activities are supported and orchestration is simple, category scores and total score can be 0 (Easy)."
+                )
 
                 grouped_syn: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
                 for r in syn_rows:
@@ -1952,8 +1979,29 @@ def main() -> None:
                 for pipe, items in grouped_syn.items():
                     total_acts = len(items)
 
-                    # Integrate pipelines = not ARM based → mark as non-migratable
-                    non_migratable = total_acts
+                    # Same scoring logic as ADF: rely on per-activity Migratable column
+                    non_migratable = sum(
+                        1 for it in items
+                        if (it.get("Migratable") or "").lower() == "no"
+                    )
+
+                    # Connectivity scoring for Synapse: if linked services are not resolved in rows,
+                    # this will correctly fall back to 0.
+                    used_ls_names: Set[str] = set()
+                    for it in items:
+                        sls = (it.get("SourceLinkedService") or "").strip()
+                        tls = (it.get("SinkLinkedService") or "").strip()
+                        if sls:
+                            used_ls_names.add(sls)
+                        if tls:
+                            used_ls_names.add(tls)
+                    used_ls_types: List[str] = []
+                    try:
+                        # If Synapse rows include LS types, use them; otherwise score_connectivity([]) -> 0
+                        used_ls_types = [it.get("SourceLinkedServiceType", "") for it in items if it.get("SourceLinkedServiceType")] + \
+                                        [it.get("SinkLinkedServiceType", "") for it in items if it.get("SinkLinkedServiceType")]
+                    except Exception:
+                        used_ls_types = []
 
                     control_acts = 0
                     for it in items:
@@ -1963,19 +2011,34 @@ def main() -> None:
 
                     parity_score = score_component_parity(total_acts, non_migratable)
                     non_mig_score = score_non_migratable(non_migratable)
+                    connectivity_score = score_connectivity(used_ls_types)
                     orchestration_score = score_orchestration(total_acts, control_acts)
-                    total = parity_score + non_mig_score + orchestration_score
+                    total = parity_score + non_mig_score + connectivity_score + orchestration_score
+
+                    if 3 in (parity_score, non_mig_score, connectivity_score, orchestration_score):
+                        band = "🔴 Hard"
+                    elif total <= 4:
+                        band = "🟢 Easy"
+                    elif total <= 8:
+                        band = "🟡 Medium"
+                    else:
+                        band = "🔴 Hard"
+
+                    reason = ""
+                    if non_migratable > 0:
+                        reason = "One or more activities are not currently supported for migration"
 
                     syn_score_rows.append({
                         "Pipeline": pipe,
                         "Component Parity": parity_score,
                         "Non-Migratable": non_mig_score,
+                        "Connectivity": connectivity_score,
                         "Orchestration": orchestration_score,
                         "Total Score": total,
-                        "Difficulty": "🔴 Not Migratable",
+                        "Difficulty": band,
                         "Activities": total_acts,
                         "Non-Migratable Count": non_migratable,
-                        "Reason": "Synapse pipeline's structure is unsupportable",
+                        "Reason": reason,
                     })
 
                 if syn_score_rows:

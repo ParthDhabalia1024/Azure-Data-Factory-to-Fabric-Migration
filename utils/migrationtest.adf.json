@@ -3,8 +3,23 @@
     "annotations": [],
     "activities": [
       {
-        "type": "Copy",
         "name": "Copy data1",
+        "type": "Copy",
+        "inputs": [
+          {
+            "referenceName": "DelimitedText1",
+            "parameters": {},
+            "type": "DatasetReference"
+          }
+        ],
+        "outputs": [
+          {
+            "referenceName": "DelimitedText2",
+            "parameters": {},
+            "type": "DatasetReference"
+          }
+        ],
+        "userProperties": [],
         "typeProperties": {
           "sink": {
             "StoreSettings": {
@@ -27,6 +42,14 @@
             "SinkRetryWait": null,
             "MaxConcurrentConnections": null,
             "AdditionalProperties": {}
+          },
+          "translator": {
+            "type": "TabularTranslator",
+            "typeConversion": true,
+            "typeConversionSettings": {
+              "allowDataTruncation": true,
+              "treatBooleanAsNumber": false
+            }
           },
           "source": {
             "StoreSettings": {
@@ -53,24 +76,8 @@
             "SourceRetryWait": null,
             "MaxConcurrentConnections": null,
             "AdditionalProperties": {}
-          },
-          "translator": {
-            "type": "TabularTranslator",
-            "typeConversion": true,
-            "typeConversionSettings": {
-              "allowDataTruncation": true,
-              "treatBooleanAsNumber": false
-            }
           }
         },
-        "outputs": [
-          {
-            "referenceName": "DelimitedText2",
-            "type": "DatasetReference",
-            "parameters": {}
-          }
-        ],
-        "userProperties": [],
         "policy": {
           "Timeout": "0.12:00:00",
           "Retry": 0,
@@ -79,12 +86,29 @@
           "SecureOutput": false,
           "AdditionalProperties": {}
         },
-        "dependsOn": [],
-        "inputs": [
+        "dependsOn": []
+      },
+      {
+        "type": "SetVariable",
+        "policy": {
+          "SecureInput": false,
+          "SecureOutput": false
+        },
+        "typeProperties": {
+          "variableName": "DemoParam",
+          "value": {
+            "value": "@pipeline().parameters.p_DemoParam",
+            "type": "Expression"
+          }
+        },
+        "userProperties": [],
+        "name": "Set variable1",
+        "dependsOn": [
           {
-            "referenceName": "DelimitedText1",
-            "type": "DatasetReference",
-            "parameters": {}
+            "dependencyConditions": [
+              "Succeeded"
+            ],
+            "activity": "Copy data1"
           }
         ]
       }
@@ -95,7 +119,12 @@
         "type": "String"
       }
     },
-    "parameters": {}
+    "parameters": {
+      "p_DemoParam": {
+        "defaultValue": "5",
+        "type": "String"
+      }
+    }
   },
   "name": "migrationtest"
 }
