@@ -378,6 +378,25 @@ function Get-PropCI($obj, $name) {
     return $null
 }
 
+# Normalize variables into ADF shape { type = 'String'; defaultValue = <val> }
+function Normalize_Variables {
+    param([hashtable]$vars)
+    if (-not $vars) { return @{} }
+    $out = @{}
+    foreach ($k in $vars.Keys) {
+        $v = $vars[$k]
+        $typeVal = $null
+        $defaultVal = $null
+        if ($v -is [hashtable] -or $v -is [pscustomobject]) {
+            $typeVal = (Get-PropCI $v 'type'); if (-not $typeVal) { $typeVal = (Get-PropCI $v 'Type') }
+            $defaultVal = (Get-PropCI $v 'defaultValue'); if (-not $defaultVal) { $defaultVal = (Get-PropCI $v 'DefaultValue') }
+        }
+        if (-not $typeVal) { $typeVal = 'String' }
+        $out[$k] = @{ type = $typeVal; defaultValue = $defaultVal }
+    }
+    return $out
+}
+
 if ($sp) {
     $acts = (Get-PropCI $sp 'activities'); if ($acts) { $activitiesRaw = $acts } else { $activitiesRaw = @() }
     $pars = (Get-PropCI $sp 'parameters'); if ($pars) { $parameters  = $pars } else { $parameters  = @{} }
@@ -441,6 +460,9 @@ foreach ($a in $activitiesRaw) {
     $activities += (Convert-SynapseActivityToAdf -a $a)
 }
 
+# Normalize variables now that we have them
+$variables = Normalize_Variables -vars $variables
+
 # If there are still no activities, decide based on InjectWaitIfEmpty
 if (-not $activities -or ($activities | Measure-Object).Count -eq 0) {
     if ($InjectWaitIfEmpty.IsPresent) {
@@ -459,6 +481,7 @@ if (-not $activities -or ($activities | Measure-Object).Count -eq 0) {
     }
 }
 
+# Build properties block for ADF schema
 $properties = @{
     activities  = $activities
     parameters  = $parameters
@@ -467,6 +490,7 @@ $properties = @{
 }
 if ($description) { $properties.description = $description }
 
+# Ensure the ADF pipeline object carries properties
 $adfPipeline = @{
     name       = $PipelineName
     properties = $properties

@@ -2,9 +2,20 @@
   "name": "migrationtest",
   "properties": {
     "annotations": [],
-    "parameters": {},
     "activities": [
       {
+        "policy": {
+          "Timeout": "0.12:00:00",
+          "Retry": 0,
+          "RetryIntervalInSeconds": 30,
+          "SecureInput": false,
+          "SecureOutput": false,
+          "AdditionalProperties": {}
+        },
+        "userProperties": [],
+        "dependsOn": [],
+        "name": "Copy data1",
+        "type": "Copy",
         "outputs": [
           {
             "type": "DatasetReference",
@@ -12,33 +23,14 @@
             "parameters": {}
           }
         ],
+        "inputs": [
+          {
+            "type": "DatasetReference",
+            "referenceName": "DelimitedText1",
+            "parameters": {}
+          }
+        ],
         "typeProperties": {
-          "source": {
-            "StoreSettings": {
-              "Recursive": true,
-              "WildcardFolderPath": null,
-              "WildcardFileName": null,
-              "Prefix": null,
-              "FileListPath": null,
-              "EnablePartitionDiscovery": false,
-              "PartitionRootPath": null,
-              "DeleteFilesAfterCompletion": null,
-              "ModifiedDatetimeStart": null,
-              "ModifiedDatetimeEnd": null,
-              "MaxConcurrentConnections": null,
-              "AdditionalProperties": {}
-            },
-            "FormatSettings": {
-              "SkipLineCount": null,
-              "CompressionProperties": null,
-              "AdditionalProperties": {}
-            },
-            "AdditionalColumns": null,
-            "SourceRetryCount": null,
-            "SourceRetryWait": null,
-            "MaxConcurrentConnections": null,
-            "AdditionalProperties": {}
-          },
           "sink": {
             "StoreSettings": {
               "BlockSizeInMB": null,
@@ -68,33 +60,45 @@
               "allowDataTruncation": true,
               "treatBooleanAsNumber": false
             }
+          },
+          "source": {
+            "StoreSettings": {
+              "Recursive": true,
+              "WildcardFolderPath": null,
+              "WildcardFileName": null,
+              "Prefix": null,
+              "FileListPath": null,
+              "EnablePartitionDiscovery": false,
+              "PartitionRootPath": null,
+              "DeleteFilesAfterCompletion": null,
+              "ModifiedDatetimeStart": null,
+              "ModifiedDatetimeEnd": null,
+              "MaxConcurrentConnections": null,
+              "AdditionalProperties": {}
+            },
+            "FormatSettings": {
+              "SkipLineCount": null,
+              "CompressionProperties": null,
+              "AdditionalProperties": {}
+            },
+            "AdditionalColumns": null,
+            "SourceRetryCount": null,
+            "SourceRetryWait": null,
+            "MaxConcurrentConnections": null,
+            "AdditionalProperties": {}
           }
-        },
-        "userProperties": [],
-        "name": "Copy data1",
-        "inputs": [
-          {
-            "type": "DatasetReference",
-            "referenceName": "DelimitedText1",
-            "parameters": {}
-          }
-        ],
-        "policy": {
-          "Timeout": "0.12:00:00",
-          "Retry": 0,
-          "RetryIntervalInSeconds": 30,
-          "SecureInput": false,
-          "SecureOutput": false,
-          "AdditionalProperties": {}
-        },
-        "dependsOn": [],
-        "type": "Copy"
+        }
+      },
+      {
+        "type": "Execute",
+        "name": "Set variable1"
       }
     ],
+    "parameters": {},
     "variables": {
       "DemoParam": {
-        "Type": {},
-        "DefaultValue": null
+        "type": "String",
+        "defaultValue": null
       }
     }
   }
