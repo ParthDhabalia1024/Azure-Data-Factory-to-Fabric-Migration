@@ -3,32 +3,8 @@
     "annotations": [],
     "activities": [
       {
-        "policy": {
-          "Timeout": "0.12:00:00",
-          "Retry": 0,
-          "RetryIntervalInSeconds": 30,
-          "SecureInput": false,
-          "SecureOutput": false,
-          "AdditionalProperties": {}
-        },
-        "userProperties": [],
-        "dependsOn": [],
-        "name": "Copy data1",
         "type": "Copy",
-        "outputs": [
-          {
-            "type": "DatasetReference",
-            "referenceName": "DelimitedText2",
-            "parameters": {}
-          }
-        ],
-        "inputs": [
-          {
-            "type": "DatasetReference",
-            "referenceName": "DelimitedText1",
-            "parameters": {}
-          }
-        ],
+        "name": "Copy data1",
         "typeProperties": {
           "sink": {
             "StoreSettings": {
@@ -51,14 +27,6 @@
             "SinkRetryWait": null,
             "MaxConcurrentConnections": null,
             "AdditionalProperties": {}
-          },
-          "translator": {
-            "type": "TabularTranslator",
-            "typeConversion": true,
-            "typeConversionSettings": {
-              "allowDataTruncation": true,
-              "treatBooleanAsNumber": false
-            }
           },
           "source": {
             "StoreSettings": {
@@ -85,20 +53,48 @@
             "SourceRetryWait": null,
             "MaxConcurrentConnections": null,
             "AdditionalProperties": {}
+          },
+          "translator": {
+            "type": "TabularTranslator",
+            "typeConversion": true,
+            "typeConversionSettings": {
+              "allowDataTruncation": true,
+              "treatBooleanAsNumber": false
+            }
           }
-        }
-      },
-      {
-        "type": "Execute",
-        "name": "Set variable1"
+        },
+        "outputs": [
+          {
+            "referenceName": "DelimitedText2",
+            "type": "DatasetReference",
+            "parameters": {}
+          }
+        ],
+        "userProperties": [],
+        "policy": {
+          "Timeout": "0.12:00:00",
+          "Retry": 0,
+          "RetryIntervalInSeconds": 30,
+          "SecureInput": false,
+          "SecureOutput": false,
+          "AdditionalProperties": {}
+        },
+        "dependsOn": [],
+        "inputs": [
+          {
+            "referenceName": "DelimitedText1",
+            "type": "DatasetReference",
+            "parameters": {}
+          }
+        ]
       }
     ],
-    "parameters": {},
     "variables": {
       "DemoParam": {
-        "type": "String",
-        "defaultValue": null
+        "defaultValue": null,
+        "type": "String"
       }
-    }
+    },
+    "parameters": {}
   }
 }

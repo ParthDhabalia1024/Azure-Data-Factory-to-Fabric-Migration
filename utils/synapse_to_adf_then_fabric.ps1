@@ -427,13 +427,17 @@ function Convert-SynapseActivityToAdf($a) {
         }
         $outputs = @()
         if ($a.Outputs) {
-            foreach ($out in $a.Outputs) {
-                $outputs += @{ referenceName = $out.ReferenceName; type = 'DatasetReference'; parameters = ($out.Parameters ? $out.Parameters : @{}) }
+            foreach ($outp in $a.Outputs) {
+                $outputs += @{ referenceName = $outp.ReferenceName; type = 'DatasetReference'; parameters = ($outp.Parameters ? $outp.Parameters : @{}) }
             }
         }
         $typeProps = @{}
-        if ($a.Source) { $typeProps.source = $a.Source }
-        if ($a.Sink)   { $typeProps.sink   = $a.Sink }
+        if ($a.TypeProperties) {
+            $typeProps = $a.TypeProperties
+        }
+        # Ensure source/sink present; some shapes expose them at top level, others inside TypeProperties
+        if (-not $typeProps.source -and $a.Source) { $typeProps.source = $a.Source }
+        if (-not $typeProps.sink   -and $a.Sink)   { $typeProps.sink   = $a.Sink }
         if ($a.Translator) { $typeProps.translator = $a.Translator }
         return @{
             name = $name
@@ -444,6 +448,50 @@ function Convert-SynapseActivityToAdf($a) {
             policy = $a.Policy
             dependsOn = ($a.DependsOn ? $a.DependsOn : @())
             userProperties = ($a.UserProperties ? $a.UserProperties : @())
+        }
+    }
+    elseif (
+        (($a.Type) -and ($a.Type.ToString().ToLower() -in @('setvariable','set variable','set_variable'))) -or
+        (($a.type) -and ($a.type.ToString().ToLower() -in @('setvariable','set variable','set_variable'))) -or
+        (($a.TypeProperties) -and ((Get-PropCI $a.TypeProperties 'variableName') -or (Get-PropCI $a.TypeProperties 'value')))
+    ) {
+        # Map SetVariable activity to ADF shape
+        $varName = $null; $val = $null
+        if ($a.TypeProperties) {
+            $varName = Get-PropCI $a.TypeProperties 'variableName'
+            $val = Get-PropCI $a.TypeProperties 'value'
+        }
+        if (-not $varName) { $varName = Get-PropCI $a 'variableName' }
+        if (-not $val) { $val = Get-PropCI $a 'value' }
+        if ($val -is [string]) {
+            if ($val.Length -ge 2 -and $val.StartsWith('"') -and $val.EndsWith('"')) {
+                $val = $val.Substring(1, $val.Length - 2)
+            }
+        }
+        # Prefer ADF's native expression object: { type: 'Expression', value: <expr> }
+        $exprValue = $null
+        if ($val -is [hashtable] -or $val -is [pscustomobject]) {
+            if ($val.type -and $val.value) { $exprValue = $val } else { $exprValue = @{ type = 'Expression'; value = ([string]$val) } }
+        }
+        elseif ($val -is [string]) {
+            $escaped = $val.Replace("'", "''")
+            $exprValue = @{ type = 'Expression'; value = ("'{0}'" -f $escaped) }
+        }
+        elseif ($val -is [int] -or $val -is [double] -or $val -is [decimal]) {
+            $exprValue = @{ type = 'Expression'; value = ([string]$val) }
+        }
+        else {
+            $s = [string]$val
+            $escaped = $s.Replace("'", "''")
+            $exprValue = @{ type = 'Expression'; value = ("'{0}'" -f $escaped) }
+        }
+        return @{
+            name = ($a.Name ? $a.Name : 'SetVariable')
+            type = 'SetVariable'
+            typeProperties = @{ variableName = $varName; value = $exprValue }
+            dependsOn = ($a.DependsOn ? $a.DependsOn : @())
+            userProperties = ($a.UserProperties ? $a.UserProperties : @())
+            policy = ($a.Policy ? $a.Policy : $null)
         }
     }
     else {
@@ -489,6 +537,19 @@ $properties = @{
     annotations = $annotations
 }
 if ($description) { $properties.description = $description }
+
+# Diagnostics: log normalized activities types to help troubleshoot mappings
+try {
+    Write-Host "📄 Normalized activities:" -ForegroundColor DarkCyan
+    foreach ($act in $activities) {
+        $t = ($act.type ? $act.type : 'unknown')
+        $n = ($act.name ? $act.name : 'unnamed')
+        Write-Host ("  - {0} :: {1}" -f $n, $t) -ForegroundColor DarkGray
+    }
+    $activitiesDebugPath = Join-Path $PSScriptRoot ("{0}.activities.debug.json" -f $PipelineName)
+    ($activities | ConvertTo-Json -Depth 100) | Out-File -FilePath $activitiesDebugPath -Encoding utf8
+    Write-Host ("📝 Wrote activities debug JSON to {0}" -f $activitiesDebugPath) -ForegroundColor DarkGray
+} catch { }
 
 # Ensure the ADF pipeline object carries properties
 $adfPipeline = @{
@@ -970,7 +1031,18 @@ try {
             }
             if ($loc.folderPath) { $locationObj.folderPath = $loc.folderPath }
             if ($loc.fileName) { $locationObj.fileName = $loc.fileName }
-            $dsObj = @{ name = $dsName; properties = @{ type = "DelimitedText"; linkedServiceName = @{ referenceName = $lsName; type = "LinkedServiceReference" }; typeProperties = @{ location = $locationObj } } }
+            $dsObj = @{ 
+                name = $dsName; 
+                properties = @{ 
+                    type = "DelimitedText"; 
+                    linkedServiceName = @{ referenceName = $lsName; type = "LinkedServiceReference" }; 
+                    typeProperties = @{ 
+                        location = $locationObj; 
+                        firstRowAsHeader = $true; 
+                        columnDelimiter = "," 
+                    } 
+                } 
+            }
             Write-Host ("✔ Resolved dataset '{0}' location → type={1}, container/fs={2}, folder={3}, file={4}" -f $dsName, $locationObj.type, ($locationObj.container?$locationObj.container:$locationObj.fileSystem), ($locationObj.folderPath), ($locationObj.fileName)) -ForegroundColor Green
         }
         else {
@@ -1003,11 +1075,34 @@ try {
                 }
                 $locObj = if ($isFs) { @{ type = "AzureBlobFSLocation" } } else { @{ type = "AzureBlobStorageLocation" } }
                 foreach ($prop in $tpLoc.GetEnumerator()) { $locObj[$prop.Key] = $prop.Value }
-                $dsObj = @{ name = $dsName; properties = @{ type = "DelimitedText"; parameters = $paramDefs; linkedServiceName = @{ referenceName = $lsName; type = "LinkedServiceReference" }; typeProperties = @{ location = $locObj } } }
+                $dsObj = @{ 
+                    name = $dsName; 
+                    properties = @{ 
+                        type = "DelimitedText"; 
+                        parameters = $paramDefs; 
+                        linkedServiceName = @{ referenceName = $lsName; type = "LinkedServiceReference" }; 
+                        typeProperties = @{ 
+                            location = $locObj; 
+                            firstRowAsHeader = $true; 
+                            columnDelimiter = "," 
+                        } 
+                    } 
+                }
                 Write-Host ("✔ Built parameterized dataset for '{0}' from activity parameters" -f $dsName) -ForegroundColor Green
             }
             else {
-                $dsObj = @{ name = $dsName; properties = @{ type = "DelimitedText"; linkedServiceName = @{ referenceName = $lsName; type = "LinkedServiceReference" }; typeProperties = @{ location = @{ type = "AzureBlobStorageLocation"; container = "placeholder"; fileName = "placeholder.txt" } } } }
+                $dsObj = @{ 
+                    name = $dsName; 
+                    properties = @{ 
+                        type = "DelimitedText"; 
+                        linkedServiceName = @{ referenceName = $lsName; type = "LinkedServiceReference" }; 
+                        typeProperties = @{ 
+                            location = @{ type = "AzureBlobStorageLocation"; container = "placeholder"; fileName = "placeholder.txt" }; 
+                            firstRowAsHeader = $true; 
+                            columnDelimiter = "," 
+                        } 
+                    } 
+                }
                 Write-Host ("⚠️ Using placeholder location for dataset '{0}'" -f $dsName) -ForegroundColor Yellow
             }
         }
