@@ -1,25 +1,31 @@
 {
   "properties": {
-    "annotations": [],
+    "parameters": {
+      "p_DemoParam": {
+        "type": "String",
+        "defaultValue": "5"
+      }
+    },
     "activities": [
       {
-        "name": "Copy data1",
+        "userProperties": [],
+        "dependsOn": [],
         "type": "Copy",
-        "inputs": [
-          {
-            "referenceName": "DelimitedText1",
-            "parameters": {},
-            "type": "DatasetReference"
-          }
-        ],
         "outputs": [
           {
-            "referenceName": "DelimitedText2",
             "parameters": {},
+            "referenceName": "DelimitedText2",
             "type": "DatasetReference"
           }
         ],
-        "userProperties": [],
+        "inputs": [
+          {
+            "parameters": {},
+            "referenceName": "DelimitedText1",
+            "type": "DatasetReference"
+          }
+        ],
+        "name": "Copy data1",
         "typeProperties": {
           "sink": {
             "StoreSettings": {
@@ -42,14 +48,6 @@
             "SinkRetryWait": null,
             "MaxConcurrentConnections": null,
             "AdditionalProperties": {}
-          },
-          "translator": {
-            "type": "TabularTranslator",
-            "typeConversion": true,
-            "typeConversionSettings": {
-              "allowDataTruncation": true,
-              "treatBooleanAsNumber": false
-            }
           },
           "source": {
             "StoreSettings": {
@@ -76,6 +74,14 @@
             "SourceRetryWait": null,
             "MaxConcurrentConnections": null,
             "AdditionalProperties": {}
+          },
+          "translator": {
+            "type": "TabularTranslator",
+            "typeConversion": true,
+            "typeConversionSettings": {
+              "allowDataTruncation": true,
+              "treatBooleanAsNumber": false
+            }
           }
         },
         "policy": {
@@ -85,11 +91,9 @@
           "SecureInput": false,
           "SecureOutput": false,
           "AdditionalProperties": {}
-        },
-        "dependsOn": []
+        }
       },
       {
-        "type": "SetVariable",
         "policy": {
           "SecureInput": false,
           "SecureOutput": false
@@ -101,8 +105,6 @@
             "type": "Expression"
           }
         },
-        "userProperties": [],
-        "name": "Set variable1",
         "dependsOn": [
           {
             "dependencyConditions": [
@@ -110,19 +112,17 @@
             ],
             "activity": "Copy data1"
           }
-        ]
+        ],
+        "userProperties": [],
+        "type": "SetVariable",
+        "name": "Set variable1"
       }
     ],
+    "annotations": [],
     "variables": {
       "DemoParam": {
-        "defaultValue": null,
-        "type": "String"
-      }
-    },
-    "parameters": {
-      "p_DemoParam": {
-        "defaultValue": "5",
-        "type": "String"
+        "type": "String",
+        "defaultValue": null
       }
     }
   }
