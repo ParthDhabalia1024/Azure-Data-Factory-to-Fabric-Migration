@@ -1245,7 +1245,15 @@ from collections import defaultdict
 from typing import Optional, Dict, List, Tuple, Any, Set
 
 import streamlit as st
-from azure.identity import InteractiveBrowserCredential
+from azure.identity import ClientSecretCredential, InteractiveBrowserCredential
+
+from Synapse_Data.fabric_copyjob_warehouse import (
+    create_copy_job_synapse_to_warehouse,
+    create_copy_job_synapse_tables_to_warehouse,
+    create_or_get_synapse_connection_service_principal,
+    create_or_get_warehouse,
+    list_synapse_tables_service_principal,
+ )
 
 # Import from modular components
 from Migration.azure_common import (
@@ -1319,6 +1327,12 @@ def _extract_synapse_datasets_and_linked_services(
     linked_services: Set[str] = set()
 
     for r in syn_rows:
+        for key in dataset_keys:
+            if key in r and r[key]:
+                datasets.add(str(r[key]))
+            if key in linked_service_keys and r[key]:
+                linked_services.add(str(r[key]))
+
         for k, v in r.items():
             if v is None:
                 continue
@@ -1336,6 +1350,21 @@ def _extract_synapse_datasets_and_linked_services(
     ds_rows = [{"Dataset": d} for d in sorted(datasets)] if datasets else []
     ls_rows = [{"LinkedService": l} for l in sorted(linked_services)] if linked_services else []
     return ds_rows, ls_rows
+
+
+def build_service_principal_credential() -> ClientSecretCredential:
+    """Builds a ClientSecretCredential from env vars; raises if missing."""
+    tenant_id = os.getenv("AZURE_TENANT_ID")
+    client_id = os.getenv("AZURE_CLIENT_ID")
+    client_secret = os.getenv("AZURE_CLIENT_SECRET")
+    missing = [name for name, val in [
+        ("AZURE_TENANT_ID", tenant_id),
+        ("AZURE_CLIENT_ID", client_id),
+        ("AZURE_CLIENT_SECRET", client_secret),
+    ] if not val]
+    if missing:
+        raise EnvironmentError(f"Missing environment variables: {', '.join(missing)}")
+    return ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
 
 
 def main() -> None:
@@ -1367,27 +1396,30 @@ def main() -> None:
     if "credential" not in st.session_state:
         st.session_state.credential = None
 
-    # Sign-in section
+    # Sign-in section using service principal (env vars)
     with st.container(border=True):
-        st.subheader("🔐 Sign in to Azure")
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            login_clicked = st.button("🔑 Sign In with Azure", type="primary", use_container_width=True)
-        with col2:
-            st.markdown("**Status:** " + ("✅ Signed in" if st.session_state.credential else "❌ Not signed in"))
-        if login_clicked or st.session_state.credential is None:
-            try:
-                cred = InteractiveBrowserCredential()
-                _ = list_subscriptions(_credential=cred)
-                st.session_state.credential = cred
-                st.success("✅ Signed in successfully.")
-            except Exception as e:
-                st.error(f"❌ Sign-in failed: {e}")
-                return
+        st.subheader("🔐 Service Principal Authentication")
+        st.markdown(
+            "Provide AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET in the environment before launching Streamlit."
+        )
 
-    credential: Optional[InteractiveBrowserCredential] = st.session_state.credential
-    if credential is None:
-        st.stop()
+        try:
+            cred = st.session_state.credential or build_service_principal_credential()
+            # Optionally test ARM access; will still proceed even if no subscriptions
+            if st.session_state.credential is None:
+                try:
+                    _ = list_subscriptions(_credential=cred)
+                except Exception:
+                    # ignore; may lack ARM role, but credentials are valid
+                    pass
+                st.session_state.credential = cred
+            st.success("✅ Service principal credential loaded from environment.")
+        except Exception as e:
+            st.session_state.credential = None
+            st.error(f"❌ Failed to load service principal credential: {e}")
+            st.stop()
+
+    credential: Optional[ClientSecretCredential] = st.session_state.credential
 
     # Subscription selection
     with st.container(border=True):
@@ -1943,6 +1975,206 @@ def main() -> None:
         if selected_synapse_ws:
             st.markdown("---")
             st.subheader(f"🔍 Synapse Workspace: {selected_synapse_ws}")
+
+            with st.container(border=True):
+                st.subheader("🏭 Fabric Warehouse + Copy Job (REST API)")
+                st.caption(
+                    "Creates a Fabric Warehouse, creates a Fabric Connection to Synapse using service principal, then creates a Copy Job."
+                )
+
+                fabric_workspace_id = st.text_input(
+                    "Fabric Workspace ID",
+                    value="",
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+                    key="fabric_ws_id_copyjob",
+                )
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    warehouse_name = st.text_input(
+                        "Warehouse name",
+                        value=os.getenv("FABRIC_WAREHOUSE_NAME", "SynapseWarehouse"),
+                        key="fabric_wh_name",
+                    )
+                with col2:
+                    copyjob_name = st.text_input(
+                        "Copy job name",
+                        value=os.getenv("FABRIC_COPYJOB_NAME", "SynapseToWarehouseCopyJob"),
+                        key="fabric_copyjob_name",
+                    )
+
+                syn_server = st.text_input(
+                    "Synapse server",
+                    value=os.getenv("SYNAPSE_SERVER", "synapse-fabricmigration.database.windows.net"),
+                    key="syn_server",
+                )
+
+                syn_connection_id = st.text_input(
+                    "Existing Fabric Synapse connection ID (leave blank to create new)",
+                    # value=os.getenv("SYNAPSE_CONNECTION_ID", "0e51e237-02c3-4217-a032-0ee4dc7c0059"),
+                    value=os.getenv("SYNAPSE_CONNECTION_ID", "3b073c99-84de-48fc-8efa-a46972072f41"),
+                    key="syn_connection_id",
+                )
+
+                db_options_env = os.getenv("SYNAPSE_DATABASES", "").strip()
+                db_options = [d.strip() for d in db_options_env.split(",") if d.strip()]
+                default_db = os.getenv("SYNAPSE_DATABASE", "kartik_dedicated_pool")
+                if default_db and default_db not in db_options:
+                    db_options = [default_db, *db_options]
+                db_options = db_options or [default_db]
+                db_choice = st.selectbox(
+                    "Synapse database",
+                    options=[*db_options, "(enter manually)"],
+                    index=0,
+                    key="syn_database_choice",
+                )
+                if db_choice == "(enter manually)":
+                    syn_database = st.text_input(
+                        "Synapse database name",
+                        value=default_db,
+                        key="syn_database_manual",
+                    )
+                else:
+                    syn_database = db_choice
+
+                if "synapse_tables" not in st.session_state:
+                    st.session_state.synapse_tables = []
+                if "synapse_tables_selected" not in st.session_state:
+                    st.session_state.synapse_tables_selected = []
+
+                load_tables = st.button(
+                    "Load Synapse tables",
+                    key="btn_load_syn_tables",
+                )
+                if load_tables:
+                    try:
+                        tid = os.getenv("AZURE_TENANT_ID") or ""
+                        cid = os.getenv("AZURE_CLIENT_ID") or ""
+                        csec = os.getenv("AZURE_CLIENT_SECRET") or ""
+                        if not (tid and cid and csec):
+                            raise EnvironmentError("Missing AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET")
+                        tables = list_synapse_tables_service_principal(
+                            server=syn_server,
+                            database=syn_database,
+                            tenant_id=tid,
+                            client_id=cid,
+                            client_secret=csec,
+                        )
+                        st.session_state.synapse_tables = tables
+                        st.session_state.synapse_tables_selected = tables
+                    except Exception as e:
+                        st.error(f"Failed to load tables from Synapse: {e}")
+
+                tables = st.session_state.synapse_tables
+                if tables:
+                    selected_tables = st.multiselect(
+                        "Synapse tables to copy",
+                        options=tables,
+                        default=st.session_state.synapse_tables_selected,
+                        key="syn_tables_multiselect",
+                    )
+                else:
+                    selected_tables = []
+
+                skip_test = st.checkbox(
+                    "Skip test connection",
+                    value=os.getenv("FABRIC_SKIP_TEST_CONNECTION", "").lower() in ("1", "true", "yes"),
+                    key="fabric_skip_test",
+                )
+
+                run_create = st.button(
+                    "Create Warehouse + Connection + Copy Job",
+                    type="primary",
+                    key="btn_create_wh_conn_copyjob",
+                )
+
+                if run_create:
+                    if not fabric_workspace_id:
+                        st.error("Fabric Workspace ID is required.")
+                    elif not selected_tables:
+                        st.error("Please load tables and select at least one table.")
+                    else:
+                        try:
+                            st.write("Creating Warehouse...")
+                            wh = create_or_get_warehouse(
+                                workspace_id=fabric_workspace_id,
+                                display_name=warehouse_name,
+                                description=os.getenv("FABRIC_WAREHOUSE_DESCRIPTION", ""),
+                                credential=credential,
+                            )
+                            if not isinstance(wh, dict):
+                                raise RuntimeError(f"Warehouse API returned unexpected response type: {type(wh)}")
+                            if wh.get("_reused") is True:
+                                st.write("Warehouse already exists; reusing it.")
+                            warehouse_id = wh.get("id") or wh.get("warehouseId")
+                            warehouse_endpoint = None
+                            try:
+                                warehouse_endpoint = (
+                                    (wh.get("properties") or {}).get("endpoint")
+                                    if isinstance(wh, dict)
+                                    else None
+                                ) or wh.get("endpoint")
+                            except Exception:
+                                warehouse_endpoint = None
+                            if not warehouse_id:
+                                raise RuntimeError(f"Warehouse create response missing id: {wh}")
+
+                            st.write("Creating Synapse Connection...")
+                            conn = create_or_get_synapse_connection_service_principal(
+                                display_name=f"SynapseConn-{syn_server}-{syn_database}",
+                                server=syn_server,
+                                database=syn_database,
+                                tenant_id=os.getenv("AZURE_TENANT_ID") or "",
+                                client_id=os.getenv("AZURE_CLIENT_ID") or "",
+                                client_secret=os.getenv("AZURE_CLIENT_SECRET") or "",
+                                credential=credential,
+                                existing_connection_id=syn_connection_id.strip() or None,
+                            )
+                            if not isinstance(conn, dict):
+                                raise RuntimeError(f"Connection API returned unexpected response type: {type(conn)}")
+                            if conn.get("_reused") is True:
+                                st.write("Connection already exists; reusing it.")
+                            conn_id = conn.get("id")
+                            if not conn_id:
+                                raise RuntimeError(f"Connection create response missing id: {conn}")
+
+                            st.write("Creating Copy Job...")
+                            try:
+                                print(
+                                    "[debug] copyjob inputs",
+                                    {
+                                        "copyjob_name": copyjob_name,
+                                        "warehouse_id": warehouse_id,
+                                        "warehouse_endpoint": warehouse_endpoint,
+                                        "connection_id": conn_id,
+                                        "tables": selected_tables,
+                                        "source_database": syn_database,
+                                    },
+                                    flush=True,
+                                )
+                            except Exception:
+                                pass
+                            cj_status = st.empty()
+                            cj = create_copy_job_synapse_tables_to_warehouse(
+                                workspace_id=fabric_workspace_id,
+                                display_name=copyjob_name,
+                                source_connection_id=conn_id,
+                                source_tables=selected_tables,
+                                destination_warehouse_id=warehouse_id,
+                                destination_endpoint=warehouse_endpoint,
+                                source_database=syn_database,
+                                credential=credential,
+                                progress_callback=lambda m: cj_status.write(m),
+                            )
+                            if not isinstance(cj, dict):
+                                raise RuntimeError(f"CopyJob API returned unexpected response type: {type(cj)}")
+                            if cj.get("_reused") is True:
+                                st.write("Copy Job already exists; reusing it.")
+
+                            st.success("Created Warehouse, Connection, and Copy Job.")
+                            st.json({"warehouse": wh, "connection": conn, "copyJob": cj})
+                        except Exception as e:
+                            st.error(f"Failed to create Warehouse/Connection/Copy Job: {e}")
 
             try:
                 syn_rows = fetch_activity_rows_for_synapse(

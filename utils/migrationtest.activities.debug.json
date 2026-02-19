@@ -1,8 +1,5 @@
 [
   {
-    "userProperties": [],
-    "dependsOn": [],
-    "type": "Copy",
     "outputs": [
       {
         "parameters": {},
@@ -10,15 +7,25 @@
         "type": "DatasetReference"
       }
     ],
-    "inputs": [
-      {
-        "parameters": {},
-        "referenceName": "DelimitedText1",
-        "type": "DatasetReference"
-      }
-    ],
-    "name": "Copy data1",
+    "userProperties": [],
+    "type": "Copy",
+    "policy": {
+      "Timeout": "0.12:00:00",
+      "Retry": 0,
+      "RetryIntervalInSeconds": 30,
+      "SecureInput": false,
+      "SecureOutput": false,
+      "AdditionalProperties": {}
+    },
     "typeProperties": {
+      "translator": {
+        "type": "TabularTranslator",
+        "typeConversion": true,
+        "typeConversionSettings": {
+          "allowDataTruncation": true,
+          "treatBooleanAsNumber": false
+        }
+      },
       "sink": {
         "StoreSettings": {
           "BlockSizeInMB": null,
@@ -66,47 +73,40 @@
         "SourceRetryWait": null,
         "MaxConcurrentConnections": null,
         "AdditionalProperties": {}
-      },
-      "translator": {
-        "type": "TabularTranslator",
-        "typeConversion": true,
-        "typeConversionSettings": {
-          "allowDataTruncation": true,
-          "treatBooleanAsNumber": false
-        }
       }
     },
-    "policy": {
-      "Timeout": "0.12:00:00",
-      "Retry": 0,
-      "RetryIntervalInSeconds": 30,
-      "SecureInput": false,
-      "SecureOutput": false,
-      "AdditionalProperties": {}
-    }
+    "inputs": [
+      {
+        "parameters": {},
+        "referenceName": "DelimitedText1",
+        "type": "DatasetReference"
+      }
+    ],
+    "dependsOn": [],
+    "name": "Copy data1"
   },
   {
+    "name": "Set variable1",
+    "typeProperties": {
+      "value": {
+        "value": "@pipeline().parameters.p_DemoParam",
+        "type": "Expression"
+      },
+      "variableName": "DemoParam"
+    },
+    "userProperties": [],
+    "type": "SetVariable",
     "policy": {
       "SecureInput": false,
       "SecureOutput": false
     },
-    "typeProperties": {
-      "variableName": "DemoParam",
-      "value": {
-        "value": "@pipeline().parameters.p_DemoParam",
-        "type": "Expression"
-      }
-    },
     "dependsOn": [
       {
+        "activity": "Copy data1",
         "dependencyConditions": [
           "Succeeded"
-        ],
-        "activity": "Copy data1"
+        ]
       }
-    ],
-    "userProperties": [],
-    "type": "SetVariable",
-    "name": "Set variable1"
+    ]
   }
 ]
